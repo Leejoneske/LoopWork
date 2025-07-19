@@ -14,7 +14,273 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      payment_requests: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          method: Database["public"]["Enums"]["payout_method"]
+          processed_at: string | null
+          recipient_details: Json
+          status: Database["public"]["Enums"]["payment_status"] | null
+          user_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          method: Database["public"]["Enums"]["payout_method"]
+          processed_at?: string | null
+          recipient_details: Json
+          status?: Database["public"]["Enums"]["payment_status"] | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          method?: Database["public"]["Enums"]["payout_method"]
+          processed_at?: string | null
+          recipient_details?: Json
+          status?: Database["public"]["Enums"]["payment_status"] | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          city: string | null
+          country: string | null
+          created_at: string | null
+          date_of_birth: string | null
+          education_level: string | null
+          email: string
+          first_name: string | null
+          gender: string | null
+          id: string
+          income_range: string | null
+          last_name: string | null
+          occupation: string | null
+          phone_number: string | null
+          status: Database["public"]["Enums"]["user_status"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          date_of_birth?: string | null
+          education_level?: string | null
+          email: string
+          first_name?: string | null
+          gender?: string | null
+          id: string
+          income_range?: string | null
+          last_name?: string | null
+          occupation?: string | null
+          phone_number?: string | null
+          status?: Database["public"]["Enums"]["user_status"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          date_of_birth?: string | null
+          education_level?: string | null
+          email?: string
+          first_name?: string | null
+          gender?: string | null
+          id?: string
+          income_range?: string | null
+          last_name?: string | null
+          occupation?: string | null
+          phone_number?: string | null
+          status?: Database["public"]["Enums"]["user_status"] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      survey_providers: {
+        Row: {
+          api_endpoint: string | null
+          api_key_required: boolean | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+        }
+        Insert: {
+          api_endpoint?: string | null
+          api_key_required?: boolean | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+        }
+        Update: {
+          api_endpoint?: string | null
+          api_key_required?: boolean | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+        }
+        Relationships: []
+      }
+      surveys: {
+        Row: {
+          created_at: string | null
+          current_completions: number | null
+          description: string | null
+          estimated_time: number | null
+          expires_at: string | null
+          external_survey_id: string
+          id: string
+          max_completions: number | null
+          provider_id: string | null
+          reward_amount: number
+          status: Database["public"]["Enums"]["survey_status"] | null
+          target_demographics: Json | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_completions?: number | null
+          description?: string | null
+          estimated_time?: number | null
+          expires_at?: string | null
+          external_survey_id: string
+          id?: string
+          max_completions?: number | null
+          provider_id?: string | null
+          reward_amount: number
+          status?: Database["public"]["Enums"]["survey_status"] | null
+          target_demographics?: Json | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_completions?: number | null
+          description?: string | null
+          estimated_time?: number | null
+          expires_at?: string | null
+          external_survey_id?: string
+          id?: string
+          max_completions?: number | null
+          provider_id?: string | null
+          reward_amount?: number
+          status?: Database["public"]["Enums"]["survey_status"] | null
+          target_demographics?: Json | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "surveys_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "survey_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_surveys: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          reward_earned: number | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["survey_status"] | null
+          survey_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          reward_earned?: number | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["survey_status"] | null
+          survey_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          reward_earned?: number | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["survey_status"] | null
+          survey_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_surveys_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_surveys_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallets: {
+        Row: {
+          balance: number | null
+          created_at: string | null
+          id: string
+          total_earned: number | null
+          total_withdrawn: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          balance?: number | null
+          created_at?: string | null
+          id?: string
+          total_earned?: number | null
+          total_withdrawn?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          balance?: number | null
+          created_at?: string | null
+          id?: string
+          total_earned?: number | null
+          total_withdrawn?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +289,10 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      payment_status: "pending" | "completed" | "failed" | "cancelled"
+      payout_method: "mpesa" | "airtime" | "voucher"
+      survey_status: "available" | "completed" | "expired" | "blocked"
+      user_status: "active" | "suspended" | "banned"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +419,11 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      payment_status: ["pending", "completed", "failed", "cancelled"],
+      payout_method: ["mpesa", "airtime", "voucher"],
+      survey_status: ["available", "completed", "expired", "blocked"],
+      user_status: ["active", "suspended", "banned"],
+    },
   },
 } as const
