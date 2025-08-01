@@ -133,7 +133,7 @@ const Dashboard = () => {
       {/* Desktop Header */}
       <header className="hidden lg:block border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-primary">SurveyEarn</h1>
+          <h1 className="text-2xl font-bold text-primary">LoopWork</h1>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">
               Welcome, {user?.user_metadata?.first_name || user?.email}
