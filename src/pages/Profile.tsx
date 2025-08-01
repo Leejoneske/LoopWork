@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { User, Save, MapPin, Briefcase, GraduationCap } from "lucide-react";
+import { sanitizeInput, validatePhoneNumber } from "@/utils/validation";
 
 interface ProfileData {
   first_name?: string;
@@ -58,14 +60,49 @@ const Profile = () => {
   };
 
   const handleSave = async () => {
+    // Validate phone number if provided
+    if (profile.phone_number && !validatePhoneNumber(profile.phone_number)) {
+      toast({
+        title: "Invalid phone number",
+        description: "Please enter a valid Kenyan phone number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate date of birth
+    if (profile.date_of_birth) {
+      const birthDate = new Date(profile.date_of_birth);
+      const today = new Date();
+      const age = today.getFullYear() - birthDate.getFullYear();
+      
+      if (age < 16 || age > 100) {
+        toast({
+          title: "Invalid date of birth",
+          description: "You must be between 16 and 100 years old",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setIsSaving(true);
     try {
+      // Sanitize text inputs
+      const sanitizedProfile = {
+        ...profile,
+        first_name: profile.first_name ? sanitizeInput(profile.first_name) : undefined,
+        last_name: profile.last_name ? sanitizeInput(profile.last_name) : undefined,
+        city: profile.city ? sanitizeInput(profile.city) : undefined,
+        occupation: profile.occupation ? sanitizeInput(profile.occupation) : undefined,
+      };
+
       const { error } = await supabase
         .from("profiles")
         .upsert({
           id: user?.id,
           email: user?.email,
-          ...profile,
+          ...sanitizedProfile,
           updated_at: new Date().toISOString(),
         });
 
@@ -138,6 +175,7 @@ const Profile = () => {
                     value={profile.first_name || ""}
                     onChange={(e) => updateProfile("first_name", e.target.value)}
                     placeholder="Enter your first name"
+                    maxLength={50}
                   />
                 </div>
                 <div className="space-y-2">
@@ -147,6 +185,7 @@ const Profile = () => {
                     value={profile.last_name || ""}
                     onChange={(e) => updateProfile("last_name", e.target.value)}
                     placeholder="Enter your last name"
+                    maxLength={50}
                   />
                 </div>
               </div>
@@ -158,8 +197,12 @@ const Profile = () => {
                   type="tel"
                   value={profile.phone_number || ""}
                   onChange={(e) => updateProfile("phone_number", e.target.value)}
-                  placeholder="0700000000"
+                  placeholder="0700000000 or +254700000000"
+                  maxLength={13}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Enter a valid Kenyan phone number
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -170,6 +213,8 @@ const Profile = () => {
                     type="date"
                     value={profile.date_of_birth || ""}
                     onChange={(e) => updateProfile("date_of_birth", e.target.value)}
+                    min="1924-01-01"
+                    max={new Date(Date.now() - 16 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
                   />
                 </div>
                 <div className="space-y-2">
@@ -221,6 +266,7 @@ const Profile = () => {
                     value={profile.city || ""}
                     onChange={(e) => updateProfile("city", e.target.value)}
                     placeholder="Enter your city"
+                    maxLength={100}
                   />
                 </div>
               </div>
@@ -243,6 +289,7 @@ const Profile = () => {
                   value={profile.occupation || ""}
                   onChange={(e) => updateProfile("occupation", e.target.value)}
                   placeholder="Enter your occupation"
+                  maxLength={100}
                 />
               </div>
 

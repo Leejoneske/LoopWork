@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Wallet as WalletIcon, ArrowDownLeft, ArrowUpRight, TrendingUp, History } from "lucide-react";
+import { validatePhoneNumber, validateWithdrawalAmount } from "@/utils/validation";
+import { useRateLimit } from "@/hooks/useRateLimit";
 
 interface WalletData {
   balance: number;
@@ -35,6 +38,7 @@ const Wallet = () => {
   const [withdrawMethod, setWithdrawMethod] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const { checkRateLimit, recordAttempt } = useRateLimit('withdrawal');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -81,6 +85,17 @@ const Wallet = () => {
   };
 
   const handleWithdraw = async () => {
+    // Check rate limit
+    const rateLimitCheck = checkRateLimit();
+    if (!rateLimitCheck.allowed) {
+      toast({
+        title: "Rate limit exceeded",
+        description: rateLimitCheck.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!withdrawAmount || !withdrawMethod || !phoneNumber) {
       toast({
         title: "Missing information",
@@ -90,20 +105,23 @@ const Wallet = () => {
       return;
     }
 
-    const amount = parseFloat(withdrawAmount);
-    if (amount <= 0 || amount > (wallet?.balance || 0)) {
+    // Validate phone number
+    if (!validatePhoneNumber(phoneNumber)) {
       toast({
-        title: "Invalid amount",
-        description: "Amount must be greater than 0 and not exceed your balance",
+        title: "Invalid phone number",
+        description: "Please enter a valid Kenyan phone number",
         variant: "destructive",
       });
       return;
     }
 
-    if (amount < 100) {
+    const amount = parseFloat(withdrawAmount);
+    const validation = validateWithdrawalAmount(amount, wallet?.balance || 0);
+    
+    if (!validation.isValid) {
       toast({
-        title: "Minimum withdrawal",
-        description: "Minimum withdrawal amount is KSh 100",
+        title: "Invalid amount",
+        description: validation.message,
         variant: "destructive",
       });
       return;
@@ -123,6 +141,8 @@ const Wallet = () => {
 
       if (error) throw error;
 
+      recordAttempt(true); // Record success
+
       toast({
         title: "Withdrawal requested!",
         description: "Your withdrawal request has been submitted and will be processed within 24 hours.",
@@ -132,6 +152,7 @@ const Wallet = () => {
       setPhoneNumber("");
       fetchPaymentRequests();
     } catch (error: any) {
+      recordAttempt(false); // Record failure
       toast({
         title: "Error requesting withdrawal",
         description: error.message,
@@ -233,12 +254,12 @@ const Wallet = () => {
                   type="number"
                   placeholder="100"
                   min="100"
-                  max={wallet?.balance || 0}
+                  max={Math.min(wallet?.balance || 0, 50000)}
                   value={withdrawAmount}
                   onChange={(e) => setWithdrawAmount(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Minimum: KSh 100 | Available: KSh {wallet?.balance?.toFixed(2) || "0.00"}
+                  Min: KSh 100 | Max: KSh 50,000 | Available: KSh {wallet?.balance?.toFixed(2) || "0.00"}
                 </p>
               </div>
 
@@ -260,10 +281,14 @@ const Wallet = () => {
                 <Input
                   id="phone"
                   type="tel"
-                  placeholder="0700000000"
+                  placeholder="0700000000 or +254700000000"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
+                  maxLength={13}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Enter a valid Kenyan phone number
+                </p>
               </div>
 
               <Button 

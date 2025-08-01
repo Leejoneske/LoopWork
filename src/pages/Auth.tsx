@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { useRateLimit } from "@/hooks/useRateLimit";
+import { sanitizeInput } from "@/utils/validation";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -16,6 +19,7 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { checkRateLimit, recordAttempt } = useRateLimit('auth');
 
   useEffect(() => {
     // Check if user is already logged in
@@ -30,23 +34,42 @@ const Auth = () => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check rate limit
+    const rateLimitCheck = checkRateLimit();
+    if (!rateLimitCheck.allowed) {
+      toast({
+        title: "Rate limit exceeded",
+        description: rateLimitCheck.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
+      // Sanitize inputs
+      const sanitizedEmail = sanitizeInput(email);
+      const sanitizedFirstName = sanitizeInput(firstName);
+      const sanitizedLastName = sanitizeInput(lastName);
+
       const { error } = await supabase.auth.signUp({
-        email,
+        email: sanitizedEmail,
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/dashboard`,
           data: {
-            first_name: firstName,
-            last_name: lastName,
+            first_name: sanitizedFirstName,
+            last_name: sanitizedLastName,
           },
         },
       });
 
       if (error) throw error;
 
+      recordAttempt(true); // Record success
+      
       toast({
         title: "Registration successful!",
         description: "Please check your email to verify your account.",
@@ -57,6 +80,7 @@ const Auth = () => {
         navigate("/dashboard");
       }, 2000);
     } catch (error: any) {
+      recordAttempt(false); // Record failure
       toast({
         title: "Registration failed",
         description: error.message,
@@ -69,17 +93,32 @@ const Auth = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check rate limit
+    const rateLimitCheck = checkRateLimit();
+    if (!rateLimitCheck.allowed) {
+      toast({
+        title: "Rate limit exceeded",
+        description: rateLimitCheck.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
+      const sanitizedEmail = sanitizeInput(email);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: sanitizedEmail,
         password,
       });
 
       if (error) throw error;
 
       if (data.user) {
+        recordAttempt(true); // Record success
         toast({
           title: "Welcome back!",
           description: "Successfully signed in.",
@@ -87,6 +126,7 @@ const Auth = () => {
         navigate("/dashboard");
       }
     } catch (error: any) {
+      recordAttempt(false); // Record failure
       toast({
         title: "Sign in failed",
         description: error.message,
@@ -124,6 +164,7 @@ const Auth = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    maxLength={254}
                   />
                 </div>
                 <div className="space-y-2">
@@ -134,6 +175,8 @@ const Auth = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    minLength={6}
+                    maxLength={128}
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
@@ -153,6 +196,7 @@ const Auth = () => {
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       required
+                      maxLength={50}
                     />
                   </div>
                   <div className="space-y-2">
@@ -163,6 +207,7 @@ const Auth = () => {
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       required
+                      maxLength={50}
                     />
                   </div>
                 </div>
@@ -175,6 +220,7 @@ const Auth = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    maxLength={254}
                   />
                 </div>
                 <div className="space-y-2">
@@ -186,7 +232,11 @@ const Auth = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     minLength={6}
+                    maxLength={128}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Minimum 6 characters required
+                  </p>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Creating account..." : "Sign Up"}
