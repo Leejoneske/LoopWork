@@ -29,7 +29,7 @@ const Index = () => {
       <section className="py-20 px-4">
         <div className="container mx-auto text-center">
           <h1 className="text-5xl font-bold mb-6 text-foreground">
-            Earn Money with <span className="text-primary">SurveyEarn</span>
+            Earn Money with <span className="text-primary">LoopWork</span>
           </h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
             Join thousands of users earning real money by completing surveys. 
@@ -49,7 +49,7 @@ const Index = () => {
       {/* Features Section */}
       <section className="py-16 px-4 bg-muted/30">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">Why Choose SurveyEarn?</h2>
+          <h2 className="text-3xl font-bold text-center mb-12">Why Choose LoopWork?</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <Card>
               <CardHeader className="text-center">
@@ -110,7 +110,7 @@ const Index = () => {
             Sign up now and complete your first survey to earn your welcome bonus!
           </p>
           <Button size="lg" onClick={() => navigate("/auth")} className="text-lg px-8">
-            Join SurveyEarn Now
+            Join LoopWork Now
           </Button>
         </div>
       </section>
