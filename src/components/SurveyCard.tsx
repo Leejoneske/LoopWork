@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -100,12 +99,21 @@ export const SurveyCard = ({ survey, onSurveyStart }: SurveyCardProps) => {
 
       if (updateError) throw updateError;
 
-      // Update wallet balance - directly update the wallets table instead of using RPC
+      // First, get the current wallet balance
+      const { data: walletData, error: fetchError } = await supabase
+        .from("wallets")
+        .select("balance, total_earned")
+        .eq("user_id", user.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Update wallet balance with the new amounts
       const { error: walletError } = await supabase
         .from("wallets")
         .update({
-          balance: supabase.sql`balance + ${survey.reward_amount}`,
-          total_earned: supabase.sql`total_earned + ${survey.reward_amount}`,
+          balance: (walletData.balance || 0) + survey.reward_amount,
+          total_earned: (walletData.total_earned || 0) + survey.reward_amount,
           updated_at: new Date().toISOString()
         })
         .eq("user_id", user.id);
