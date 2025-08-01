@@ -84,6 +84,8 @@ export const SurveyCard = ({ survey, onSurveyStart }: SurveyCardProps) => {
   };
 
   const handleSurveyComplete = async () => {
+    if (!user) return;
+    
     try {
       // Update survey completion
       const { error: updateError } = await supabase
@@ -93,16 +95,20 @@ export const SurveyCard = ({ survey, onSurveyStart }: SurveyCardProps) => {
           completed_at: new Date().toISOString(),
           reward_earned: survey.reward_amount,
         })
-        .eq("user_id", user?.id)
+        .eq("user_id", user.id)
         .eq("survey_id", survey.id);
 
       if (updateError) throw updateError;
 
-      // Update wallet balance
-      const { error: walletError } = await supabase.rpc('add_wallet_balance', {
-        user_id: user?.id,
-        amount: survey.reward_amount
-      });
+      // Update wallet balance - directly update the wallets table instead of using RPC
+      const { error: walletError } = await supabase
+        .from("wallets")
+        .update({
+          balance: supabase.sql`balance + ${survey.reward_amount}`,
+          total_earned: supabase.sql`total_earned + ${survey.reward_amount}`,
+          updated_at: new Date().toISOString()
+        })
+        .eq("user_id", user.id);
 
       if (walletError) throw walletError;
 
@@ -110,6 +116,8 @@ export const SurveyCard = ({ survey, onSurveyStart }: SurveyCardProps) => {
         title: "Congratulations!",
         description: `You earned KSh ${survey.reward_amount}!`,
       });
+
+      setShowSurveyTaking(false);
     } catch (error: any) {
       toast({
         title: "Error completing survey",
