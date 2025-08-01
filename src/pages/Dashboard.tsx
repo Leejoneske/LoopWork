@@ -1,13 +1,16 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { SurveyCard } from "@/components/SurveyCard";
-import { Wallet, TrendingUp, Clock, Star, FileText, User, CreditCard } from "lucide-react";
+import { MobileHeader } from "@/components/MobileHeader";
+import { StatsCard } from "@/components/StatsCard";
+import { QuickActionCard } from "@/components/QuickActionCard";
+import { Wallet, TrendingUp, Star, FileText, User, CreditCard } from "lucide-react";
 
 interface Survey {
   id: string;
@@ -91,6 +94,27 @@ const Dashboard = () => {
     navigate("/auth");
   };
 
+  const quickActions = [
+    {
+      title: "Browse All Surveys",
+      description: "Find and complete surveys that match your profile",
+      icon: FileText,
+      onClick: () => navigate("/surveys")
+    },
+    {
+      title: "Manage Wallet",
+      description: "View earnings and request withdrawals",
+      icon: CreditCard,
+      onClick: () => navigate("/wallet")
+    },
+    {
+      title: "Update Profile",
+      description: "Complete your profile to get better survey matches",
+      icon: User,
+      onClick: () => navigate("/profile")
+    }
+  ];
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -104,8 +128,10 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
+      <MobileHeader wallet={wallet} />
+      
+      {/* Desktop Header */}
+      <header className="hidden lg:block border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-primary">SurveyEarn</h1>
           <div className="flex items-center gap-4">
@@ -133,76 +159,46 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-4 sm:py-8">
         {/* Wallet Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Current Balance</CardTitle>
-              <Wallet className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">
-                KSh {wallet?.balance?.toFixed(2) || "0.00"}
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <StatsCard
+            title="Current Balance"
+            value={`KSh ${wallet?.balance?.toFixed(2) || "0.00"}`}
+            icon={Wallet}
+            className="text-primary"
+          />
           
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Earned</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-success">
-                KSh {wallet?.total_earned?.toFixed(2) || "0.00"}
-              </div>
-            </CardContent>
-          </Card>
+          <StatsCard
+            title="Total Earned"
+            value={`KSh ${wallet?.total_earned?.toFixed(2) || "0.00"}`}
+            icon={TrendingUp}
+            className="text-success"
+          />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Available Surveys</CardTitle>
-              <Star className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{surveys.length}</div>
-            </CardContent>
-          </Card>
+          <StatsCard
+            title="Available Surveys"
+            value={surveys.length.toString()}
+            icon={Star}
+            className="sm:col-span-2 lg:col-span-1"
+          />
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/surveys")}>
-            <CardContent className="p-6 text-center">
-              <FileText className="h-12 w-12 mx-auto mb-4 text-primary" />
-              <h3 className="font-semibold mb-2">Browse All Surveys</h3>
-              <p className="text-sm text-muted-foreground">Find and complete surveys that match your profile</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/wallet")}>
-            <CardContent className="p-6 text-center">
-              <CreditCard className="h-12 w-12 mx-auto mb-4 text-primary" />
-              <h3 className="font-semibold mb-2">Manage Wallet</h3>
-              <p className="text-sm text-muted-foreground">View earnings and request withdrawals</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/profile")}>
-            <CardContent className="p-6 text-center">
-              <User className="h-12 w-12 mx-auto mb-4 text-primary" />
-              <h3 className="font-semibold mb-2">Update Profile</h3>
-              <p className="text-sm text-muted-foreground">Complete your profile to get better survey matches</p>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          {quickActions.map((action) => (
+            <QuickActionCard
+              key={action.title}
+              {...action}
+            />
+          ))}
         </div>
 
         {/* Recent Surveys */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Recent Surveys</CardTitle>
-            <Button variant="outline" onClick={() => navigate("/surveys")}>
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0">
+            <CardTitle className="text-lg sm:text-xl">Recent Surveys</CardTitle>
+            <Button variant="outline" onClick={() => navigate("/surveys")} size="sm">
               View All
             </Button>
           </CardHeader>
@@ -219,7 +215,7 @@ const Dashboard = () => {
                 <p className="text-sm text-muted-foreground mt-2">Check back later for new opportunities!</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {surveys.slice(0, 3).map((survey) => (
                   <SurveyCard 
                     key={survey.id} 
