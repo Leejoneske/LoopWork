@@ -14,6 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          created_at: string
+          description: string
+          icon: string | null
+          id: string
+          name: string
+          requirement_type: string
+          requirement_value: number
+          reward_amount: number | null
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          icon?: string | null
+          id?: string
+          name: string
+          requirement_type: string
+          requirement_value: number
+          reward_amount?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          icon?: string | null
+          id?: string
+          name?: string
+          requirement_type?: string
+          requirement_value?: number
+          reward_amount?: number | null
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          data: Json | null
+          id: string
+          message: string
+          read: boolean | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json | null
+          id?: string
+          message: string
+          read?: boolean | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json | null
+          id?: string
+          message?: string
+          read?: boolean | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       payment_requests: {
         Row: {
           amount: number
@@ -70,6 +136,7 @@ export type Database = {
           last_name: string | null
           occupation: string | null
           phone_number: string | null
+          referral_code: string | null
           status: Database["public"]["Enums"]["user_status"] | null
           updated_at: string | null
         }
@@ -87,6 +154,7 @@ export type Database = {
           last_name?: string | null
           occupation?: string | null
           phone_number?: string | null
+          referral_code?: string | null
           status?: Database["public"]["Enums"]["user_status"] | null
           updated_at?: string | null
         }
@@ -104,8 +172,66 @@ export type Database = {
           last_name?: string | null
           occupation?: string | null
           phone_number?: string | null
+          referral_code?: string | null
           status?: Database["public"]["Enums"]["user_status"] | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      referrals: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          referral_code: string
+          referred_id: string
+          referrer_id: string
+          reward_amount: number | null
+          status: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          referral_code: string
+          referred_id: string
+          referrer_id: string
+          reward_amount?: number | null
+          status?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          referral_code?: string
+          referred_id?: string
+          referrer_id?: string
+          reward_amount?: number | null
+          status?: string | null
+        }
+        Relationships: []
+      }
+      survey_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
         }
         Relationships: []
       }
@@ -138,6 +264,7 @@ export type Database = {
       }
       surveys: {
         Row: {
+          category_id: string | null
           created_at: string | null
           current_completions: number | null
           description: string | null
@@ -154,6 +281,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          category_id?: string | null
           created_at?: string | null
           current_completions?: number | null
           description?: string | null
@@ -170,6 +298,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          category_id?: string | null
           created_at?: string | null
           current_completions?: number | null
           description?: string | null
@@ -187,10 +316,46 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "surveys_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "survey_categories"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "surveys_provider_id_fkey"
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "survey_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          earned_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          earned_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          earned_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
             referencedColumns: ["id"]
           },
         ]
@@ -286,7 +451,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_referral_code: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       payment_status: "pending" | "completed" | "failed" | "cancelled"
