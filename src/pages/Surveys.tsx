@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,7 +33,7 @@ const Surveys = () => {
   const [loadingSurveys, setLoadingSurveys] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("reward_desc");
-  const [timeFilter, setTimeFilter] = useState("");
+  const [timeFilter, setTimeFilter] = useState("all");
 
   useEffect(() => {
     if (!loading && !user) {
@@ -84,7 +85,7 @@ const Surveys = () => {
     }
 
     // Time filter
-    if (timeFilter) {
+    if (timeFilter && timeFilter !== "all") {
       filtered = filtered.filter(survey => {
         const time = survey.estimated_time;
         switch (timeFilter) {
@@ -114,7 +115,7 @@ const Surveys = () => {
   const clearFilters = () => {
     setSearchTerm("");
     setSortBy("reward_desc");
-    setTimeFilter("");
+    setTimeFilter("all");
   };
 
   if (loading) {
@@ -192,7 +193,7 @@ const Surveys = () => {
                     <SelectValue placeholder="Any duration" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Any duration</SelectItem>
+                    <SelectItem value="all">Any duration</SelectItem>
                     <SelectItem value="short">Short (≤ 10 min)</SelectItem>
                     <SelectItem value="medium">Medium (11-30 min)</SelectItem>
                     <SelectItem value="long">Long (&gt; 30 min)</SelectItem>
