@@ -34,6 +34,8 @@ const Surveys = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("reward_desc");
   const [timeFilter, setTimeFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -54,14 +56,27 @@ const Surveys = () => {
   const fetchSurveys = async () => {
     setLoadingSurveys(true);
     try {
-      const { data, error } = await supabase
-        .from("surveys")
-        .select("*")
-        .eq("status", "available")
-        .order("created_at", { ascending: false });
+      const [surveysResult, categoriesResult] = await Promise.all([
+        supabase
+          .from("surveys")
+          .select(`
+            *,
+            survey_categories (name)
+          `)
+          .eq("status", "available")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("survey_categories")
+          .select("id, name")
+          .order("name")
+      ]);
 
-      if (error) throw error;
-      setSurveys(data || []);
+      if (surveysResult.error) throw surveysResult.error;
+      setSurveys(surveysResult.data || []);
+
+      if (categoriesResult.data) {
+        setCategories(categoriesResult.data);
+      }
     } catch (error: any) {
       toast({
         title: "Error loading surveys",
@@ -116,6 +131,7 @@ const Surveys = () => {
     setSearchTerm("");
     setSortBy("reward_desc");
     setTimeFilter("all");
+    setCategoryFilter("all");
   };
 
   if (loading) {

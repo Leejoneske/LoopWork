@@ -10,6 +10,10 @@ import Dashboard from "./pages/Dashboard";
 import Surveys from "./pages/Surveys";
 import Wallet from "./pages/Wallet";
 import Profile from "./pages/Profile";
+import Admin from "./pages/Admin";
+import Analytics from "./pages/Analytics";
+import Referrals from "./pages/Referrals";
+import Achievements from "./pages/Achievements";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +32,10 @@ const App = () => (
             <Route path="/surveys" element={<Surveys />} />
             <Route path="/wallet" element={<Wallet />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/referrals" element={<Referrals />} />
+            <Route path="/achievements" element={<Achievements />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

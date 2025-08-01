@@ -2,9 +2,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Wallet, FileText, User, LogOut } from "lucide-react";
+import { Menu, Wallet, FileText, User, LogOut, BarChart3, Gift, Users, Award } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { NotificationCenter } from "./NotificationCenter";
 
 interface MobileHeaderProps {
   wallet?: {
@@ -27,6 +28,9 @@ export const MobileHeader = ({ wallet }: MobileHeaderProps) => {
   const menuItems = [
     { label: "Dashboard", icon: User, path: "/dashboard" },
     { label: "All Surveys", icon: FileText, path: "/surveys" },
+    { label: "Analytics", icon: BarChart3, path: "/analytics" },
+    { label: "Achievements", icon: Award, path: "/achievements" },
+    { label: "Referrals", icon: Users, path: "/referrals" },
     { label: "Wallet", icon: Wallet, path: "/wallet" },
     { label: "Profile", icon: User, path: "/profile" },
   ];
@@ -37,6 +41,7 @@ export const MobileHeader = ({ wallet }: MobileHeaderProps) => {
         <h1 className="text-lg font-bold text-primary">SurveyEarn</h1>
         
         <div className="flex items-center gap-2">
+          <NotificationCenter />
           <div className="text-right">
             <div className="text-xs text-muted-foreground">Balance</div>
             <div className="text-sm font-semibold text-primary">
