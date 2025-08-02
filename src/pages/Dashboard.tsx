@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { SurveyCard } from "@/components/SurveyCard";
 import { MobileHeader } from "@/components/MobileHeader";
-import { StatsCard } from "@/components/StatsCard";
+import { StatCard } from "@/components/StatCard";
 import { QuickActionCard } from "@/components/QuickActionCard";
 import { Wallet, TrendingUp, Star, FileText, User, CreditCard } from "lucide-react";
 
@@ -21,6 +21,7 @@ interface Survey {
   status: string;
   current_completions: number;
   max_completions: number;
+  external_survey_id: string;
   created_at: string;
 }
 
@@ -128,7 +129,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <MobileHeader wallet={wallet} />
+      <MobileHeader />
       
       {/* Desktop Header */}
       <header className="hidden lg:block border-b bg-card">
@@ -162,21 +163,21 @@ const Dashboard = () => {
       <div className="container mx-auto px-4 py-4 sm:py-8">
         {/* Wallet Overview */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          <StatsCard
+          <StatCard
             title="Current Balance"
             value={`KSh ${wallet?.balance?.toFixed(2) || "0.00"}`}
             icon={Wallet}
             className="text-primary"
           />
           
-          <StatsCard
+          <StatCard
             title="Total Earned"
             value={`KSh ${wallet?.total_earned?.toFixed(2) || "0.00"}`}
             icon={TrendingUp}
             className="text-success"
           />
 
-          <StatsCard
+          <StatCard
             title="Available Surveys"
             value={surveys.length.toString()}
             icon={Star}
