@@ -13,6 +13,7 @@ import Wallet from "./pages/Wallet";
 import Surveys from "./pages/Surveys";
 import Admin from "./pages/Admin";
 import SurveyAdmin from "./pages/SurveyAdmin";
+import CPXSettings from "./pages/CPXSettings";
 import Analytics from "./pages/Analytics";
 import Referrals from "./pages/Referrals";
 import Achievements from "./pages/Achievements";
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/surveys" element={<Surveys />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/survey-admin" element={<SurveyAdmin />} />
+            <Route path="/cpx-settings" element={<CPXSettings />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/referrals" element={<Referrals />} />
             <Route path="/achievements" element={<Achievements />} />

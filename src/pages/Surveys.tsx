@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { SurveyCard } from "@/components/SurveyCard";
+import { CPXResearchWidget } from "@/components/CPXResearchWidget";
+import { MobileHeader } from "@/components/MobileHeader";
 import { Search, Filter, RotateCcw } from "lucide-react";
 
 interface Survey {
@@ -147,8 +149,10 @@ const Surveys = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <MobileHeader />
+      
       {/* Header */}
-      <header className="border-b bg-card">
+      <header className="hidden lg:block border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => navigate("/dashboard")}>
@@ -225,6 +229,19 @@ const Surveys = () => {
                 </Button>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* CPX Research Widget */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>CPX Research Surveys</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Instantly available surveys from CPX Research partners
+            </p>
+          </CardHeader>
+          <CardContent>
+            <CPXResearchWidget design="fullcontent" limit={6} />
           </CardContent>
         </Card>
 
