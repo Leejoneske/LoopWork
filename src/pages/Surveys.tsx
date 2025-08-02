@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,6 +20,7 @@ interface Survey {
   status: string;
   current_completions: number;
   max_completions: number;
+  external_survey_id: string;
   created_at: string;
 }
 

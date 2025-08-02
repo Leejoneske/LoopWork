@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,7 @@ interface Survey {
   description: string;
   reward_amount: number;
   estimated_time: number;
-  status: string;
+  status: "available" | "expired" | "completed" | "blocked";
   current_completions: number;
   max_completions: number;
   external_survey_id: string;
@@ -106,7 +105,7 @@ export const SurveyManagement = () => {
         external_survey_id: formData.external_survey_id,
         category_id: formData.category_id,
         expires_at: formData.expires_at ? new Date(formData.expires_at).toISOString() : null,
-        status: "available"
+        status: "available" as const
       };
 
       let error;
