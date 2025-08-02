@@ -1,12 +1,12 @@
+
 import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Star, Users } from "lucide-react";
+import { Clock, Star, Users, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { SurveyTaking } from "./SurveyTaking";
 
 interface Survey {
   id: string;
@@ -17,6 +17,7 @@ interface Survey {
   status: string;
   current_completions: number;
   max_completions: number;
+  external_survey_id: string;
 }
 
 interface SurveyCardProps {
@@ -28,7 +29,6 @@ export const SurveyCard = ({ survey, onSurveyStart }: SurveyCardProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [showSurveyTaking, setShowSurveyTaking] = useState(false);
 
   const handleStartSurvey = async () => {
     if (!user) return;
@@ -65,11 +65,17 @@ export const SurveyCard = ({ survey, onSurveyStart }: SurveyCardProps) => {
       if (error) throw error;
 
       toast({
-        title: "Survey started!",
-        description: "Survey is now loading...",
+        title: "Redirecting to survey",
+        description: "Opening external survey in new tab...",
       });
 
-      setShowSurveyTaking(true);
+      // Open external survey
+      const surveyUrl = survey.external_survey_id.startsWith('http') 
+        ? survey.external_survey_id 
+        : `https://${survey.external_survey_id}`;
+      
+      window.open(surveyUrl, '_blank');
+
       onSurveyStart?.();
     } catch (error: any) {
       toast({
@@ -82,72 +88,9 @@ export const SurveyCard = ({ survey, onSurveyStart }: SurveyCardProps) => {
     }
   };
 
-  const handleSurveyComplete = async () => {
-    if (!user) return;
-    
-    try {
-      // Update survey completion
-      const { error: updateError } = await supabase
-        .from("user_surveys")
-        .update({
-          status: "completed",
-          completed_at: new Date().toISOString(),
-          reward_earned: survey.reward_amount,
-        })
-        .eq("user_id", user.id)
-        .eq("survey_id", survey.id);
-
-      if (updateError) throw updateError;
-
-      // First, get the current wallet balance
-      const { data: walletData, error: fetchError } = await supabase
-        .from("wallets")
-        .select("balance, total_earned")
-        .eq("user_id", user.id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      // Update wallet balance with the new amounts
-      const { error: walletError } = await supabase
-        .from("wallets")
-        .update({
-          balance: (walletData.balance || 0) + survey.reward_amount,
-          total_earned: (walletData.total_earned || 0) + survey.reward_amount,
-          updated_at: new Date().toISOString()
-        })
-        .eq("user_id", user.id);
-
-      if (walletError) throw walletError;
-
-      toast({
-        title: "Congratulations!",
-        description: `You earned KSh ${survey.reward_amount}!`,
-      });
-
-      setShowSurveyTaking(false);
-    } catch (error: any) {
-      toast({
-        title: "Error completing survey",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
   const progress = survey.max_completions 
     ? Math.round((survey.current_completions / survey.max_completions) * 100)
     : 0;
-
-  if (showSurveyTaking) {
-    return (
-      <SurveyTaking
-        survey={survey}
-        onComplete={handleSurveyComplete}
-        onClose={() => setShowSurveyTaking(false)}
-      />
-    );
-  }
 
   return (
     <Card className="hover:shadow-md transition-shadow h-full flex flex-col">
@@ -174,6 +117,10 @@ export const SurveyCard = ({ survey, onSurveyStart }: SurveyCardProps) => {
           <span className="flex items-center gap-1">
             <Star className="h-3 w-3 sm:h-4 sm:w-4" />
             High reward
+          </span>
+          <span className="flex items-center gap-1">
+            <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4" />
+            External
           </span>
         </div>
 

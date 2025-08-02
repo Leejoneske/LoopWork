@@ -2,101 +2,88 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Wallet, FileText, User, LogOut, BarChart3, Gift, Users, Award } from "lucide-react";
+import { Menu, Home, User, Wallet, FileText, BarChart3, Users, Trophy, Settings, Plus } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
 import { NotificationCenter } from "./NotificationCenter";
 
-interface MobileHeaderProps {
-  wallet?: {
-    balance: number;
-    total_earned: number;
-  } | null;
-}
-
-export const MobileHeader = ({ wallet }: MobileHeaderProps) => {
-  const { user, signOut } = useAuth();
-  const navigate = useNavigate();
+export const MobileHeader = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { signOut } = useAuth();
 
-  const handleSignOut = async () => {
-    await signOut();
-    navigate("/auth");
+  const menuItems = [
+    { icon: Home, label: "Dashboard", path: "/dashboard" },
+    { icon: FileText, label: "Surveys", path: "/surveys" },
+    { icon: Wallet, label: "Wallet", path: "/wallet" },
+    { icon: Users, label: "Referrals", path: "/referrals" },
+    { icon: Trophy, label: "Achievements", path: "/achievements" },
+    { icon: BarChart3, label: "Analytics", path: "/analytics" },
+    { icon: User, label: "Profile", path: "/profile" },
+    { icon: Settings, label: "Admin", path: "/admin" },
+    { icon: Plus, label: "Survey Admin", path: "/survey-admin" },
+  ];
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
     setIsOpen(false);
   };
 
-  const menuItems = [
-    { label: "Dashboard", icon: User, path: "/dashboard" },
-    { label: "All Surveys", icon: FileText, path: "/surveys" },
-    { label: "Analytics", icon: BarChart3, path: "/analytics" },
-    { label: "Achievements", icon: Award, path: "/achievements" },
-    { label: "Referrals", icon: Users, path: "/referrals" },
-    { label: "Wallet", icon: Wallet, path: "/wallet" },
-    { label: "Profile", icon: User, path: "/profile" },
-  ];
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+    setIsOpen(false);
+  };
 
   return (
-    <header className="lg:hidden border-b bg-card sticky top-0 z-50">
-      <div className="flex items-center justify-between p-4">
-        <h1 className="text-lg font-bold text-primary">SurveyEarn</h1>
-        
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-14 items-center justify-between px-4">
         <div className="flex items-center gap-2">
-          <NotificationCenter />
-          <div className="text-right">
-            <div className="text-xs text-muted-foreground">Balance</div>
-            <div className="text-sm font-semibold text-primary">
-              KSh {wallet?.balance?.toFixed(2) || "0.00"}
-            </div>
-          </div>
-          
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon">
-                <Menu className="h-4 w-4" />
+              <Button variant="ghost" size="sm" className="md:hidden">
+                <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-64">
-              <div className="flex flex-col h-full">
-                <div className="py-4 border-b">
-                  <p className="text-sm text-muted-foreground">Welcome,</p>
-                  <p className="font-medium truncate">
-                    {user?.user_metadata?.first_name || user?.email}
-                  </p>
+            <SheetContent side="left" className="w-64 p-0">
+              <div className="flex h-full flex-col">
+                <div className="flex items-center border-b px-6 py-4">
+                  <h2 className="text-lg font-semibold">Survey App</h2>
                 </div>
-                
-                <nav className="flex-1 py-4">
-                  <div className="space-y-2">
-                    {menuItems.map((item) => (
+                <nav className="flex-1 space-y-1 p-4">
+                  {menuItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = location.pathname === item.path;
+                    return (
                       <Button
                         key={item.path}
-                        variant="ghost"
-                        className="w-full justify-start"
-                        onClick={() => {
-                          navigate(item.path);
-                          setIsOpen(false);
-                        }}
+                        variant={isActive ? "default" : "ghost"}
+                        className="w-full justify-start gap-2"
+                        onClick={() => handleNavigation(item.path)}
                       >
-                        <item.icon className="mr-2 h-4 w-4" />
+                        <Icon className="h-4 w-4" />
                         {item.label}
                       </Button>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </nav>
-                
-                <div className="border-t pt-4">
+                <div className="border-t p-4">
                   <Button
-                    variant="ghost"
-                    className="w-full justify-start text-destructive"
+                    variant="outline"
+                    className="w-full"
                     onClick={handleSignOut}
                   >
-                    <LogOut className="mr-2 h-4 w-4" />
                     Sign Out
                   </Button>
                 </div>
               </div>
             </SheetContent>
           </Sheet>
+          <h1 className="text-lg font-semibold">Survey App</h1>
         </div>
+        
+        <NotificationCenter />
       </div>
     </header>
   );
