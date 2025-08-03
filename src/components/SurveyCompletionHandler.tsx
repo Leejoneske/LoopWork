@@ -73,17 +73,28 @@ export const SurveyCompletionHandler = ({
 
       console.log('Wallet updated successfully');
 
-      // Update survey completion count
-      const { error: surveyUpdateError } = await supabase
+      // Update survey completion count - first get current count
+      const { data: currentSurvey, error: surveyFetchError } = await supabase
         .from('surveys')
-        .update({
-          current_completions: supabase.raw('current_completions + 1')
-        })
-        .eq('id', surveyId);
+        .select('current_completions')
+        .eq('id', surveyId)
+        .single();
 
-      if (surveyUpdateError) {
-        console.error('Error updating survey count:', surveyUpdateError);
+      if (surveyFetchError) {
+        console.error('Error fetching survey:', surveyFetchError);
         // Don't throw here, wallet update is more important
+      } else {
+        const { error: surveyUpdateError } = await supabase
+          .from('surveys')
+          .update({
+            current_completions: (currentSurvey.current_completions || 0) + 1
+          })
+          .eq('id', surveyId);
+
+        if (surveyUpdateError) {
+          console.error('Error updating survey count:', surveyUpdateError);
+          // Don't throw here, wallet update is more important
+        }
       }
 
       toast({
