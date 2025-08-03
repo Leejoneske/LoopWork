@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ export const SurveyManagement = () => {
 
   const fetchSurveys = async () => {
     try {
+      console.log('Fetching surveys...');
       const { data, error } = await supabase
         .from("surveys")
         .select(`
@@ -62,9 +64,15 @@ export const SurveyManagement = () => {
         `)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      console.log('Surveys fetch result:', { data, error });
+
+      if (error) {
+        console.error('Error fetching surveys:', error);
+        throw error;
+      }
       setSurveys(data || []);
     } catch (error: any) {
+      console.error('Failed to fetch surveys:', error);
       toast({
         title: "Error fetching surveys",
         description: error.message,
@@ -96,6 +104,8 @@ export const SurveyManagement = () => {
     setLoading(true);
 
     try {
+      console.log('Submitting survey form:', formData);
+      
       const surveyData = {
         title: formData.title,
         description: formData.description,
@@ -103,24 +113,33 @@ export const SurveyManagement = () => {
         estimated_time: parseInt(formData.estimated_time),
         max_completions: formData.max_completions ? parseInt(formData.max_completions) : null,
         external_survey_id: formData.external_survey_id,
-        category_id: formData.category_id,
+        category_id: formData.category_id || null,
         expires_at: formData.expires_at ? new Date(formData.expires_at).toISOString() : null,
         status: "available" as const
       };
 
-      let error;
+      console.log('Survey data to save:', surveyData);
+
+      let result;
       if (editingSurvey) {
-        ({ error } = await supabase
+        result = await supabase
           .from("surveys")
           .update(surveyData)
-          .eq("id", editingSurvey.id));
+          .eq("id", editingSurvey.id)
+          .select();
       } else {
-        ({ error } = await supabase
+        result = await supabase
           .from("surveys")
-          .insert(surveyData));
+          .insert(surveyData)
+          .select();
       }
 
-      if (error) throw error;
+      console.log('Survey save result:', result);
+
+      if (result.error) {
+        console.error('Error saving survey:', result.error);
+        throw result.error;
+      }
 
       toast({
         title: editingSurvey ? "Survey updated!" : "Survey created!",
@@ -128,11 +147,12 @@ export const SurveyManagement = () => {
       });
 
       resetForm();
-      fetchSurveys();
+      await fetchSurveys();
     } catch (error: any) {
+      console.error('Failed to save survey:', error);
       toast({
         title: "Error saving survey",
-        description: error.message,
+        description: error.message || "Failed to save survey",
         variant: "destructive",
       });
     } finally {
@@ -155,27 +175,35 @@ export const SurveyManagement = () => {
     setShowForm(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this survey?")) return;
+  const handleDelete = async (id: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) return;
 
     try {
+      console.log('Deleting survey:', { id, title });
+      
       const { error } = await supabase
         .from("surveys")
         .delete()
         .eq("id", id);
 
-      if (error) throw error;
+      console.log('Delete survey result:', { error });
+
+      if (error) {
+        console.error('Error deleting survey:', error);
+        throw error;
+      }
 
       toast({
         title: "Survey deleted",
-        description: "Survey has been deleted successfully.",
+        description: `"${title}" has been deleted successfully.`,
       });
 
-      fetchSurveys();
+      await fetchSurveys();
     } catch (error: any) {
+      console.error('Failed to delete survey:', error);
       toast({
         title: "Error deleting survey",
-        description: error.message,
+        description: error.message || "Failed to delete survey",
         variant: "destructive",
       });
     }
@@ -316,43 +344,56 @@ export const SurveyManagement = () => {
       )}
 
       <div className="grid gap-4">
-        {surveys.map((survey) => (
-          <Card key={survey.id}>
-            <CardContent className="p-4">
-              <div className="flex justify-between items-start gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="font-semibold">{survey.title}</h3>
-                    <Badge variant={survey.status === "available" ? "default" : "secondary"}>
-                      {survey.status}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-2">{survey.description}</p>
-                  <div className="flex items-center gap-4 text-sm">
-                    <span>Reward: KSh {survey.reward_amount}</span>
-                    <span>Time: {survey.estimated_time} min</span>
-                    <span>Completions: {survey.current_completions}/{survey.max_completions || "∞"}</span>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(survey.external_survey_id.startsWith('http') ? survey.external_survey_id : `https://${survey.external_survey_id}`, '_blank')}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleEdit(survey)}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleDelete(survey.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+        {surveys.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <p className="text-muted-foreground">No surveys found. Create your first survey!</p>
             </CardContent>
           </Card>
-        ))}
+        ) : (
+          surveys.map((survey) => (
+            <Card key={survey.id}>
+              <CardContent className="p-4">
+                <div className="flex justify-between items-start gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="font-semibold">{survey.title}</h3>
+                      <Badge variant={survey.status === "available" ? "default" : "secondary"}>
+                        {survey.status}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-2">{survey.description}</p>
+                    <div className="flex items-center gap-4 text-sm">
+                      <span>Reward: KSh {survey.reward_amount}</span>
+                      <span>Time: {survey.estimated_time} min</span>
+                      <span>Completions: {survey.current_completions}/{survey.max_completions || "∞"}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(survey.external_survey_id.startsWith('http') ? survey.external_survey_id : `https://${survey.external_survey_id}`, '_blank')}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleEdit(survey)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleDelete(survey.id, survey.title)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,17 +26,24 @@ export const AdminManagement = () => {
 
   const fetchAdminUsers = async () => {
     try {
+      console.log('Fetching admin users...');
       const { data, error } = await supabase
         .from("admin_users")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      console.log('Admin users fetch result:', { data, error });
+      
+      if (error) {
+        console.error('Error fetching admin users:', error);
+        throw error;
+      }
       setAdminUsers(data || []);
     } catch (error: any) {
+      console.error('Failed to fetch admin users:', error);
       toast({
         title: "Error fetching admin users",
-        description: error.message,
+        description: error.message || "Failed to load admin users",
         variant: "destructive",
       });
     }
@@ -47,11 +55,19 @@ export const AdminManagement = () => {
 
     setLoading(true);
     try {
-      const { error } = await supabase
+      console.log('Adding admin:', newAdminEmail);
+      const { data, error } = await supabase
         .from("admin_users")
-        .insert({ email: newAdminEmail.trim().toLowerCase() });
+        .insert({ email: newAdminEmail.trim().toLowerCase() })
+        .select()
+        .single();
 
-      if (error) throw error;
+      console.log('Add admin result:', { data, error });
+
+      if (error) {
+        console.error('Error adding admin:', error);
+        throw error;
+      }
 
       toast({
         title: "Admin added",
@@ -59,11 +75,12 @@ export const AdminManagement = () => {
       });
 
       setNewAdminEmail("");
-      fetchAdminUsers();
+      await fetchAdminUsers();
     } catch (error: any) {
+      console.error('Failed to add admin:', error);
       toast({
         title: "Error adding admin",
-        description: error.message,
+        description: error.message || "Failed to add admin user",
         variant: "destructive",
       });
     } finally {
@@ -75,23 +92,30 @@ export const AdminManagement = () => {
     if (!confirm(`Are you sure you want to remove ${email} as an admin?`)) return;
 
     try {
+      console.log('Removing admin:', { id, email });
       const { error } = await supabase
         .from("admin_users")
         .delete()
         .eq("id", id);
 
-      if (error) throw error;
+      console.log('Remove admin result:', { error });
+
+      if (error) {
+        console.error('Error removing admin:', error);
+        throw error;
+      }
 
       toast({
         title: "Admin removed",
         description: `${email} has been removed as an admin.`,
       });
 
-      fetchAdminUsers();
+      await fetchAdminUsers();
     } catch (error: any) {
+      console.error('Failed to remove admin:', error);
       toast({
         title: "Error removing admin",
-        description: error.message,
+        description: error.message || "Failed to remove admin user",
         variant: "destructive",
       });
     }
@@ -117,30 +141,36 @@ export const AdminManagement = () => {
             />
             <Button type="submit" disabled={loading}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Admin
+              {loading ? "Adding..." : "Add Admin"}
             </Button>
           </form>
 
           <div className="space-y-3">
-            {adminUsers.map((admin) => (
-              <div key={admin.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Badge variant="default">Admin</Badge>
-                  <span className="font-medium">{admin.email}</span>
-                  <span className="text-sm text-muted-foreground">
-                    Added {new Date(admin.created_at).toLocaleDateString()}
-                  </span>
+            {adminUsers.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No admin users found.
+              </p>
+            ) : (
+              adminUsers.map((admin) => (
+                <div key={admin.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Badge variant="default">Admin</Badge>
+                    <span className="font-medium">{admin.email}</span>
+                    <span className="text-sm text-muted-foreground">
+                      Added {new Date(admin.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleRemoveAdmin(admin.id, admin.email)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleRemoveAdmin(admin.id, admin.email)}
-                  className="text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
