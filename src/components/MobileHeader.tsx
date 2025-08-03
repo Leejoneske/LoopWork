@@ -5,6 +5,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, Home, User, Wallet, FileText, BarChart3, Users, Trophy, Settings, Plus } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdmin } from "@/hooks/useAdmin";
 import { NotificationCenter } from "./NotificationCenter";
 
 export const MobileHeader = () => {
@@ -12,6 +13,7 @@ export const MobileHeader = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut } = useAuth();
+  const { isAdmin } = useAdmin();
 
   const menuItems = [
     { icon: Home, label: "Dashboard", path: "/dashboard" },
@@ -21,8 +23,10 @@ export const MobileHeader = () => {
     { icon: Trophy, label: "Achievements", path: "/achievements" },
     { icon: BarChart3, label: "Analytics", path: "/analytics" },
     { icon: User, label: "Profile", path: "/profile" },
-    { icon: Settings, label: "Admin", path: "/admin" },
-    { icon: Plus, label: "Survey Admin", path: "/survey-admin" },
+    ...(isAdmin ? [
+      { icon: Settings, label: "Admin", path: "/admin" },
+      { icon: Plus, label: "Survey Admin", path: "/survey-admin" },
+    ] : []),
   ];
 
   const handleNavigation = (path: string) => {

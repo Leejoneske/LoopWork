@@ -1,26 +1,44 @@
 
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdmin } from "@/hooks/useAdmin";
 import { useNavigate } from "react-router-dom";
 import { SurveyManagement } from "@/components/SurveyManagement";
 import { MobileHeader } from "@/components/MobileHeader";
 
 const SurveyAdmin = () => {
   const { user, loading } = useAuth();
+  const { isAdmin, loading: adminLoading } = useAdmin();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!loading && !user) {
       navigate("/auth");
+      return;
     }
-  }, [user, loading, navigate]);
 
-  if (loading) {
+    if (!adminLoading && !isAdmin) {
+      navigate("/dashboard");
+      return;
+    }
+  }, [user, loading, navigate, isAdmin, adminLoading]);
+
+  if (loading || adminLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
           <p className="mt-2 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-lg">Access denied. Admin privileges required.</p>
         </div>
       </div>
     );

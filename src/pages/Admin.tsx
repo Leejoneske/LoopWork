@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdmin } from "@/hooks/useAdmin";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Users, FileText, DollarSign, TrendingUp } from "lucide-react";
 import { MobileHeader } from "@/components/MobileHeader";
+import { AdminManagement } from "@/components/AdminManagement";
 
 interface AdminStats {
   totalUsers: number;
@@ -38,6 +40,7 @@ interface Survey {
 
 const Admin = () => {
   const { user, loading } = useAuth();
+  const { isAdmin, loading: adminLoading } = useAdmin();
   const navigate = useNavigate();
   const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0,
@@ -54,11 +57,16 @@ const Admin = () => {
       navigate("/auth");
       return;
     }
+
+    if (!adminLoading && !isAdmin) {
+      navigate("/dashboard");
+      return;
+    }
     
-    if (user) {
+    if (user && isAdmin) {
       fetchAdminData();
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, isAdmin, adminLoading]);
 
   const fetchAdminData = async () => {
     try {
@@ -90,8 +98,12 @@ const Admin = () => {
     }
   };
 
-  if (loading || loadingData) {
+  if (loading || adminLoading || loadingData) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+
+  if (!isAdmin) {
+    return <div className="flex items-center justify-center min-h-screen">Access denied. Admin privileges required.</div>;
   }
 
   return (
@@ -152,6 +164,7 @@ const Admin = () => {
           <TabsList>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="surveys">Surveys</TabsTrigger>
+            <TabsTrigger value="admins">Admin Management</TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
@@ -222,6 +235,10 @@ const Admin = () => {
                 </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="admins">
+            <AdminManagement />
           </TabsContent>
         </Tabs>
       </div>

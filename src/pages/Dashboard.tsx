@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdmin } from "@/hooks/useAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -10,7 +11,7 @@ import { SurveyCard } from "@/components/SurveyCard";
 import { MobileHeader } from "@/components/MobileHeader";
 import { StatCard } from "@/components/StatCard";
 import { QuickActionCard } from "@/components/QuickActionCard";
-import { Wallet, TrendingUp, Star, FileText, User, CreditCard } from "lucide-react";
+import { Wallet, TrendingUp, Star, FileText, User, CreditCard, Settings } from "lucide-react";
 
 interface Survey {
   id: string;
@@ -33,6 +34,7 @@ interface WalletData {
 
 const Dashboard = () => {
   const { user, loading, signOut } = useAuth();
+  const { isAdmin } = useAdmin();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [surveys, setSurveys] = useState<Survey[]>([]);
@@ -152,6 +154,12 @@ const Dashboard = () => {
                 <User className="h-4 w-4 mr-2" />
                 Profile
               </Button>
+              {isAdmin && (
+                <Button variant="outline" onClick={() => navigate("/admin")}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Admin
+                </Button>
+              )}
               <Button variant="outline" onClick={handleSignOut}>
                 Sign Out
               </Button>
