@@ -53,18 +53,21 @@ export type Database = {
           created_by: string | null
           email: string
           id: string
+          is_primary: boolean | null
         }
         Insert: {
           created_at?: string
           created_by?: string | null
           email: string
           id?: string
+          is_primary?: boolean | null
         }
         Update: {
           created_at?: string
           created_by?: string | null
           email?: string
           id?: string
+          is_primary?: boolean | null
         }
         Relationships: []
       }
@@ -472,6 +475,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_notification: {
+        Args: {
+          p_user_id: string
+          p_title: string
+          p_message: string
+          p_type?: string
+          p_data?: Json
+        }
+        Returns: string
+      }
+      create_notification_for_all_users: {
+        Args: {
+          p_title: string
+          p_message: string
+          p_type?: string
+          p_data?: Json
+        }
+        Returns: number
+      }
       generate_referral_code: {
         Args: Record<PropertyKey, never>
         Returns: string

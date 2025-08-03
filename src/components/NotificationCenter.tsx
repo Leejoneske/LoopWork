@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -5,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Bell, Check, Gift, FileText, Award, Users } from "lucide-react";
+import { Bell, Check, Gift, FileText, Award, Users, Megaphone, Settings } from "lucide-react";
 
 interface Notification {
   id: string;
@@ -117,8 +118,39 @@ export const NotificationCenter = () => {
         return <Award className="h-4 w-4" />;
       case 'referral':
         return <Users className="h-4 w-4" />;
+      case 'welcome':
+        return <Award className="h-4 w-4" />;
+      case 'announcement':
+        return <Megaphone className="h-4 w-4" />;
+      case 'update':
+        return <Settings className="h-4 w-4" />;
+      case 'promotion':
+        return <Gift className="h-4 w-4" />;
       default:
         return <Bell className="h-4 w-4" />;
+    }
+  };
+
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'survey':
+        return 'bg-blue-100 text-blue-800';
+      case 'reward':
+        return 'bg-green-100 text-green-800';
+      case 'achievement':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'referral':
+        return 'bg-purple-100 text-purple-800';
+      case 'welcome':
+        return 'bg-pink-100 text-pink-800';
+      case 'announcement':
+        return 'bg-red-100 text-red-800';
+      case 'update':
+        return 'bg-gray-100 text-gray-800';
+      case 'promotion':
+        return 'bg-orange-100 text-orange-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -172,7 +204,7 @@ export const NotificationCenter = () => {
                       {getIcon(notification.type)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 mb-1">
                         <p className="text-sm font-medium truncate">
                           {notification.title}
                         </p>
@@ -180,12 +212,20 @@ export const NotificationCenter = () => {
                           <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs text-muted-foreground mb-2">
                         {notification.message}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {new Date(notification.created_at).toLocaleDateString()}
-                      </p>
+                      <div className="flex items-center justify-between">
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs ${getTypeColor(notification.type)}`}
+                        >
+                          {notification.type}
+                        </Badge>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(notification.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>

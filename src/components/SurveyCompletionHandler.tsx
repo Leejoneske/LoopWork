@@ -3,20 +3,24 @@ import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useNotifications } from "@/hooks/useNotifications";
 
 interface SurveyCompletionHandlerProps {
   surveyId: string;
+  surveyTitle?: string;
   rewardAmount: number;
   onCompletion?: () => void;
 }
 
 export const SurveyCompletionHandler = ({ 
   surveyId, 
+  surveyTitle = "Survey",
   rewardAmount, 
   onCompletion 
 }: SurveyCompletionHandlerProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { notifySurveyCompletion } = useNotifications();
 
   const handleSurveyCompletion = async () => {
     if (!user) return;
@@ -96,6 +100,9 @@ export const SurveyCompletionHandler = ({
           // Don't throw here, wallet update is more important
         }
       }
+
+      // Send custom notification for manual completions
+      await notifySurveyCompletion(surveyTitle, rewardAmount);
 
       toast({
         title: "Survey Completed!",

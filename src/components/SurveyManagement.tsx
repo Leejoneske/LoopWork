@@ -4,95 +4,58 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Edit, Trash2, ExternalLink } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, EyeOff } from "lucide-react";
+import { SurveyCompletionHandler } from "./SurveyCompletionHandler";
 
 interface Survey {
   id: string;
   title: string;
   description: string;
+  external_survey_id: string;
   reward_amount: number;
   estimated_time: number;
-  status: "available" | "expired" | "completed" | "blocked";
-  current_completions: number;
+  status: string;
   max_completions: number;
-  external_survey_id: string;
-  category_id: string;
-  expires_at: string;
-}
-
-interface Category {
-  id: string;
-  name: string;
+  current_completions: number;
+  created_at: string;
 }
 
 export const SurveyManagement = () => {
   const { toast } = useToast();
   const [surveys, setSurveys] = useState<Survey[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [editingSurvey, setEditingSurvey] = useState<Survey | null>(null);
-
+  
+  // Form state
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    reward_amount: "",
-    estimated_time: "",
-    max_completions: "",
     external_survey_id: "",
-    category_id: "",
-    expires_at: ""
+    reward_amount: 0,
+    estimated_time: 10,
+    max_completions: 100,
   });
 
   useEffect(() => {
     fetchSurveys();
-    fetchCategories();
   }, []);
 
   const fetchSurveys = async () => {
     try {
-      console.log('Fetching surveys...');
       const { data, error } = await supabase
         .from("surveys")
-        .select(`
-          *,
-          survey_categories (name)
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
-      console.log('Surveys fetch result:', { data, error });
-
-      if (error) {
-        console.error('Error fetching surveys:', error);
-        throw error;
-      }
+      if (error) throw error;
       setSurveys(data || []);
     } catch (error: any) {
-      console.error('Failed to fetch surveys:', error);
       toast({
         title: "Error fetching surveys",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("survey_categories")
-        .select("*")
-        .order("name");
-
-      if (error) throw error;
-      setCategories(data || []);
-    } catch (error: any) {
-      toast({
-        title: "Error fetching categories",
         description: error.message,
         variant: "destructive",
       });
@@ -104,55 +67,47 @@ export const SurveyManagement = () => {
     setLoading(true);
 
     try {
-      console.log('Submitting survey form:', formData);
-      
-      const surveyData = {
-        title: formData.title,
-        description: formData.description,
-        reward_amount: parseFloat(formData.reward_amount),
-        estimated_time: parseInt(formData.estimated_time),
-        max_completions: formData.max_completions ? parseInt(formData.max_completions) : null,
-        external_survey_id: formData.external_survey_id,
-        category_id: formData.category_id || null,
-        expires_at: formData.expires_at ? new Date(formData.expires_at).toISOString() : null,
-        status: "available" as const
-      };
-
-      console.log('Survey data to save:', surveyData);
-
-      let result;
-      if (editingSurvey) {
-        result = await supabase
+      if (editingId) {
+        const { error } = await supabase
           .from("surveys")
-          .update(surveyData)
-          .eq("id", editingSurvey.id)
-          .select();
+          .update(formData)
+          .eq("id", editingId);
+
+        if (error) throw error;
+
+        toast({
+          title: "Survey updated",
+          description: "Survey has been updated successfully.",
+        });
       } else {
-        result = await supabase
+        const { error } = await supabase
           .from("surveys")
-          .insert(surveyData)
-          .select();
+          .insert([{ ...formData, status: 'available' }]);
+
+        if (error) throw error;
+
+        toast({
+          title: "Survey created",
+          description: "Survey has been created successfully.",
+        });
       }
 
-      console.log('Survey save result:', result);
-
-      if (result.error) {
-        console.error('Error saving survey:', result.error);
-        throw result.error;
-      }
-
-      toast({
-        title: editingSurvey ? "Survey updated!" : "Survey created!",
-        description: `Survey "${formData.title}" has been ${editingSurvey ? "updated" : "created"} successfully.`,
+      // Reset form
+      setFormData({
+        title: "",
+        description: "",
+        external_survey_id: "",
+        reward_amount: 0,
+        estimated_time: 10,
+        max_completions: 100,
       });
-
-      resetForm();
+      setEditingId(null);
+      setShowForm(false);
       await fetchSurveys();
     } catch (error: any) {
-      console.error('Failed to save survey:', error);
       toast({
-        title: "Error saving survey",
-        description: error.message || "Failed to save survey",
+        title: editingId ? "Error updating survey" : "Error creating survey",
+        description: error.message,
         variant: "destructive",
       });
     } finally {
@@ -161,239 +116,248 @@ export const SurveyManagement = () => {
   };
 
   const handleEdit = (survey: Survey) => {
-    setEditingSurvey(survey);
     setFormData({
       title: survey.title,
-      description: survey.description || "",
-      reward_amount: survey.reward_amount.toString(),
-      estimated_time: survey.estimated_time?.toString() || "",
-      max_completions: survey.max_completions?.toString() || "",
+      description: survey.description,
       external_survey_id: survey.external_survey_id,
-      category_id: survey.category_id || "",
-      expires_at: survey.expires_at ? new Date(survey.expires_at).toISOString().split('T')[0] : ""
+      reward_amount: survey.reward_amount,
+      estimated_time: survey.estimated_time,
+      max_completions: survey.max_completions,
     });
+    setEditingId(survey.id);
     setShowForm(true);
   };
 
   const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) return;
+    if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
 
     try {
-      console.log('Deleting survey:', { id, title });
-      
       const { error } = await supabase
         .from("surveys")
         .delete()
         .eq("id", id);
 
-      console.log('Delete survey result:', { error });
-
-      if (error) {
-        console.error('Error deleting survey:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       toast({
         title: "Survey deleted",
-        description: `"${title}" has been deleted successfully.`,
+        description: "Survey has been deleted successfully.",
       });
 
       await fetchSurveys();
     } catch (error: any) {
-      console.error('Failed to delete survey:', error);
       toast({
         title: "Error deleting survey",
-        description: error.message || "Failed to delete survey",
+        description: error.message,
         variant: "destructive",
       });
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      title: "",
-      description: "",
-      reward_amount: "",
-      estimated_time: "",
-      max_completions: "",
-      external_survey_id: "",
-      category_id: "",
-      expires_at: ""
-    });
-    setEditingSurvey(null);
-    setShowForm(false);
+  const toggleSurveyStatus = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'available' ? 'paused' : 'available';
+    
+    try {
+      const { error } = await supabase
+        .from("surveys")
+        .update({ status: newStatus })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Survey status updated",
+        description: `Survey has been ${newStatus === 'available' ? 'activated' : 'paused'}.`,
+      });
+
+      await fetchSurveys();
+    } catch (error: any) {
+      toast({
+        title: "Error updating survey status",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Survey Management</h2>
         <Button onClick={() => setShowForm(!showForm)}>
           <Plus className="h-4 w-4 mr-2" />
-          Add New Survey
+          {showForm ? "Cancel" : "Add Survey"}
         </Button>
       </div>
 
       {showForm && (
         <Card>
           <CardHeader>
-            <CardTitle>{editingSurvey ? "Edit Survey" : "Add New Survey"}</CardTitle>
+            <CardTitle>{editingId ? "Edit Survey" : "Create New Survey"}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium">Survey Title *</label>
+                  <label htmlFor="title" className="block text-sm font-medium mb-2">
+                    Survey Title
+                  </label>
                   <Input
+                    id="title"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="Enter survey title"
                     required
                   />
                 </div>
-
+                
                 <div>
-                  <label className="text-sm font-medium">External Survey URL/ID *</label>
+                  <label htmlFor="external_survey_id" className="block text-sm font-medium mb-2">
+                    External Survey ID/URL
+                  </label>
                   <Input
+                    id="external_survey_id"
                     value={formData.external_survey_id}
                     onChange={(e) => setFormData({ ...formData, external_survey_id: e.target.value })}
-                    placeholder="https://survey-provider.com/survey-id or survey-id"
                     required
                   />
                 </div>
-
+                
                 <div>
-                  <label className="text-sm font-medium">Reward Amount (KSh) *</label>
+                  <label htmlFor="reward_amount" className="block text-sm font-medium mb-2">
+                    Reward Amount (KES)
+                  </label>
                   <Input
+                    id="reward_amount"
                     type="number"
                     step="0.01"
+                    min="0"
                     value={formData.reward_amount}
-                    onChange={(e) => setFormData({ ...formData, reward_amount: e.target.value })}
-                    placeholder="0.00"
+                    onChange={(e) => setFormData({ ...formData, reward_amount: parseFloat(e.target.value) || 0 })}
                     required
                   />
                 </div>
-
+                
                 <div>
-                  <label className="text-sm font-medium">Estimated Time (minutes)</label>
+                  <label htmlFor="estimated_time" className="block text-sm font-medium mb-2">
+                    Estimated Time (minutes)
+                  </label>
                   <Input
+                    id="estimated_time"
                     type="number"
+                    min="1"
                     value={formData.estimated_time}
-                    onChange={(e) => setFormData({ ...formData, estimated_time: e.target.value })}
-                    placeholder="15"
+                    onChange={(e) => setFormData({ ...formData, estimated_time: parseInt(e.target.value) || 10 })}
+                    required
                   />
                 </div>
-
+                
                 <div>
-                  <label className="text-sm font-medium">Max Completions</label>
+                  <label htmlFor="max_completions" className="block text-sm font-medium mb-2">
+                    Max Completions
+                  </label>
                   <Input
+                    id="max_completions"
                     type="number"
+                    min="1"
                     value={formData.max_completions}
-                    onChange={(e) => setFormData({ ...formData, max_completions: e.target.value })}
-                    placeholder="Leave empty for unlimited"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium">Category</label>
-                  <Select value={formData.category_id} onValueChange={(value) => setFormData({ ...formData, category_id: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium">Expires At</label>
-                  <Input
-                    type="date"
-                    value={formData.expires_at}
-                    onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, max_completions: parseInt(e.target.value) || 100 })}
+                    required
                   />
                 </div>
               </div>
-
+              
               <div>
-                <label className="text-sm font-medium">Description</label>
+                <label htmlFor="description" className="block text-sm font-medium mb-2">
+                  Description
+                </label>
                 <Textarea
+                  id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Survey description..."
                   rows={3}
                 />
               </div>
-
-              <div className="flex gap-2">
-                <Button type="submit" disabled={loading}>
-                  {loading ? "Saving..." : editingSurvey ? "Update Survey" : "Create Survey"}
-                </Button>
-                <Button type="button" variant="outline" onClick={resetForm}>
-                  Cancel
-                </Button>
-              </div>
+              
+              <Button type="submit" disabled={loading}>
+                {loading ? "Processing..." : editingId ? "Update Survey" : "Create Survey"}
+              </Button>
             </form>
           </CardContent>
         </Card>
       )}
 
       <div className="grid gap-4">
-        {surveys.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <p className="text-muted-foreground">No surveys found. Create your first survey!</p>
+        {surveys.map((survey) => (
+          <Card key={survey.id}>
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="font-semibold text-lg">{survey.title}</h3>
+                    <Badge variant={survey.status === 'available' ? 'default' : 'secondary'}>
+                      {survey.status}
+                    </Badge>
+                  </div>
+                  
+                  <p className="text-muted-foreground mb-4">{survey.description}</p>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium">Reward:</span> KES {survey.reward_amount}
+                    </div>
+                    <div>
+                      <span className="font-medium">Time:</span> {survey.estimated_time} min
+                    </div>
+                    <div>
+                      <span className="font-medium">Completions:</span> {survey.current_completions}/{survey.max_completions}
+                    </div>
+                    <div>
+                      <span className="font-medium">Created:</span> {new Date(survey.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+
+                  {/* Survey Completion Handler for testing */}
+                  <SurveyCompletionHandler
+                    surveyId={survey.id}
+                    surveyTitle={survey.title}
+                    rewardAmount={survey.reward_amount}
+                  />
+                </div>
+                
+                <div className="flex items-center gap-2 ml-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleSurveyStatus(survey.id, survey.status)}
+                  >
+                    {survey.status === 'available' ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEdit(survey)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDelete(survey.id, survey.title)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
-        ) : (
-          surveys.map((survey) => (
-            <Card key={survey.id}>
-              <CardContent className="p-4">
-                <div className="flex justify-between items-start gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-semibold">{survey.title}</h3>
-                      <Badge variant={survey.status === "available" ? "default" : "secondary"}>
-                        {survey.status}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-2">{survey.description}</p>
-                    <div className="flex items-center gap-4 text-sm">
-                      <span>Reward: KSh {survey.reward_amount}</span>
-                      <span>Time: {survey.estimated_time} min</span>
-                      <span>Completions: {survey.current_completions}/{survey.max_completions || "∞"}</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(survey.external_survey_id.startsWith('http') ? survey.external_survey_id : `https://${survey.external_survey_id}`, '_blank')}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleEdit(survey)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => handleDelete(survey.id, survey.title)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
+        ))}
       </div>
     </div>
   );
