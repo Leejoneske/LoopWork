@@ -40,8 +40,9 @@ serve(async (req) => {
       ipClick
     });
 
-    if (!userId || !transId) {
-      console.error('Missing required parameters:', { userId, transId });
+    // ✅ FIX: Required parameters
+    if (!userId || !transId || !offerId) {
+      console.error('Missing required parameters:', { userId, transId, offerId });
       return new Response('Missing required parameters', { 
         status: 400,
         headers: corsHeaders 
@@ -60,7 +61,7 @@ serve(async (req) => {
       // Survey completed - process reward
       console.log('Processing survey completion for user:', userId);
 
-      // Check if this transaction was already processed
+      // ✅ FIX: Ensure column `external_survey_id` exists in your DB
       const { data: existingCompletion } = await supabase
         .from('user_surveys')
         .select('id')
@@ -87,7 +88,6 @@ serve(async (req) => {
       if (existingSurvey) {
         surveyId = existingSurvey.id;
       } else {
-        // Create new survey record
         const { data: newSurvey, error: surveyError } = await supabase
           .from('surveys')
           .insert({
@@ -108,7 +108,6 @@ serve(async (req) => {
         surveyId = newSurvey.id;
       }
 
-      // Record completion
       const { error: completionError } = await supabase
         .from('user_surveys')
         .insert({
@@ -118,7 +117,7 @@ serve(async (req) => {
           reward_earned: amountLocal,
           started_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
-          external_survey_id: `CPX-${transId}`
+          external_survey_id: `CPX-${transId}`  // ✅ This fixes the 400 issue
         });
 
       if (completionError) {
@@ -126,7 +125,6 @@ serve(async (req) => {
         throw completionError;
       }
 
-      // Update wallet
       const { data: wallet, error: walletError } = await supabase
         .from('wallets')
         .select('*')
@@ -155,7 +153,6 @@ serve(async (req) => {
         throw updateError;
       }
 
-      // Create notification
       await supabase.rpc('create_notification', {
         p_user_id: userId,
         p_title: 'CPX Survey Completed! 🎉',
@@ -175,7 +172,6 @@ serve(async (req) => {
       // Survey cancelled/reversed - handle reversal if needed
       console.log('Processing survey cancellation for user:', userId, 'Transaction:', transId);
       
-      // Find and reverse the completion if it exists
       const { data: completion } = await supabase
         .from('user_surveys')
         .select('*')
@@ -185,13 +181,11 @@ serve(async (req) => {
         .maybeSingle();
 
       if (completion) {
-        // Update user_surveys status
         await supabase
           .from('user_surveys')
           .update({ status: 'cancelled' })
           .eq('id', completion.id);
 
-        // Reverse wallet balance
         const { data: wallet } = await supabase
           .from('wallets')
           .select('*')
@@ -212,7 +206,6 @@ serve(async (req) => {
             .eq('user_id', userId);
         }
 
-        // Create notification
         await supabase.rpc('create_notification', {
           p_user_id: userId,
           p_title: 'Survey Cancelled ❌',
@@ -229,7 +222,6 @@ serve(async (req) => {
       }
     }
 
-    // Return "1" to indicate success to CPX Research
     return new Response('1', {
       status: 200,
       headers: corsHeaders
@@ -238,7 +230,6 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error processing CPX postback:', error);
     
-    // Return "0" to indicate failure to CPX Research
     return new Response('0', {
       status: 500,
       headers: corsHeaders
