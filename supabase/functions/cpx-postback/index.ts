@@ -190,7 +190,7 @@ serve(async (req) => {
           .from('wallets')
           .select('*')
           .eq('user_id', userId)
-          .single();
+          .maybeSingle();
 
         if (wallet) {
           const newBalance = Math.max(0, Number(wallet.balance) - Number(completion.reward_earned));
