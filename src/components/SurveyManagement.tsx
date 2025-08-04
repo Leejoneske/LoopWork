@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Edit, Trash2, Eye, EyeOff } from "lucide-react";
 import { SurveyCompletionHandler } from "./SurveyCompletionHandler";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Survey {
   id: string;
@@ -24,6 +25,7 @@ interface Survey {
 }
 
 export const SurveyManagement = () => {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [loading, setLoading] = useState(false);
@@ -46,6 +48,7 @@ export const SurveyManagement = () => {
 
   const fetchSurveys = async () => {
     try {
+      // Use RPC function or direct query with proper permissions
       const { data, error } = await supabase
         .from("surveys")
         .select("*")
@@ -54,6 +57,7 @@ export const SurveyManagement = () => {
       if (error) throw error;
       setSurveys(data || []);
     } catch (error: any) {
+      console.error('Error fetching surveys:', error);
       toast({
         title: "Error fetching surveys",
         description: error.message,
@@ -105,6 +109,7 @@ export const SurveyManagement = () => {
       setShowForm(false);
       await fetchSurveys();
     } catch (error: any) {
+      console.error('Error saving survey:', error);
       toast({
         title: editingId ? "Error updating survey" : "Error creating survey",
         description: error.message,
@@ -132,6 +137,17 @@ export const SurveyManagement = () => {
     if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
 
     try {
+      // First delete related user_surveys to avoid foreign key constraints
+      const { error: userSurveysError } = await supabase
+        .from("user_surveys")
+        .delete()
+        .eq("survey_id", id);
+
+      if (userSurveysError) {
+        console.warn('Warning deleting user surveys:', userSurveysError);
+      }
+
+      // Then delete the survey
       const { error } = await supabase
         .from("surveys")
         .delete()
@@ -146,6 +162,7 @@ export const SurveyManagement = () => {
 
       await fetchSurveys();
     } catch (error: any) {
+      console.error('Error deleting survey:', error);
       toast({
         title: "Error deleting survey",
         description: error.message,
@@ -172,12 +189,18 @@ export const SurveyManagement = () => {
 
       await fetchSurveys();
     } catch (error: any) {
+      console.error('Error updating survey status:', error);
       toast({
         title: "Error updating survey status",
         description: error.message,
         variant: "destructive",
       });
     }
+  };
+
+  const isExternalSurvey = (surveyId: string) => {
+    const survey = surveys.find(s => s.id === surveyId);
+    return survey?.external_survey_id?.startsWith('http') || survey?.external_survey_id?.includes('cpx');
   };
 
   return (
@@ -219,6 +242,7 @@ export const SurveyManagement = () => {
                     value={formData.external_survey_id}
                     onChange={(e) => setFormData({ ...formData, external_survey_id: e.target.value })}
                     required
+                    placeholder="http://survey-url.com or survey-id"
                   />
                 </div>
                 
@@ -297,6 +321,9 @@ export const SurveyManagement = () => {
                     <Badge variant={survey.status === 'available' ? 'default' : 'secondary'}>
                       {survey.status}
                     </Badge>
+                    {isExternalSurvey(survey.id) && (
+                      <Badge variant="outline">External</Badge>
+                    )}
                   </div>
                   
                   <p className="text-muted-foreground mb-4">{survey.description}</p>
@@ -316,11 +343,12 @@ export const SurveyManagement = () => {
                     </div>
                   </div>
 
-                  {/* Survey Completion Handler for testing */}
+                  {/* Survey Completion Handler - only show manual button for internal surveys */}
                   <SurveyCompletionHandler
                     surveyId={survey.id}
                     surveyTitle={survey.title}
                     rewardAmount={survey.reward_amount}
+                    showManualButton={!isExternalSurvey(survey.id)}
                   />
                 </div>
                 
@@ -329,6 +357,7 @@ export const SurveyManagement = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => toggleSurveyStatus(survey.id, survey.status)}
+                    title={survey.status === 'available' ? 'Block Survey' : 'Activate Survey'}
                   >
                     {survey.status === 'available' ? (
                       <EyeOff className="h-4 w-4" />
@@ -341,6 +370,7 @@ export const SurveyManagement = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => handleEdit(survey)}
+                    title="Edit Survey"
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
@@ -350,6 +380,7 @@ export const SurveyManagement = () => {
                     size="sm"
                     onClick={() => handleDelete(survey.id, survey.title)}
                     className="text-destructive hover:text-destructive"
+                    title="Delete Survey"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -358,6 +389,14 @@ export const SurveyManagement = () => {
             </CardContent>
           </Card>
         ))}
+
+        {surveys.length === 0 && (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <p className="text-muted-foreground">No surveys found. Create your first survey to get started.</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

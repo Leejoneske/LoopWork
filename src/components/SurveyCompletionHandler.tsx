@@ -10,13 +10,15 @@ interface SurveyCompletionHandlerProps {
   surveyTitle?: string;
   rewardAmount: number;
   onCompletion?: () => void;
+  showManualButton?: boolean; // Only show for internal surveys
 }
 
 export const SurveyCompletionHandler = ({ 
   surveyId, 
   surveyTitle = "Survey",
   rewardAmount, 
-  onCompletion 
+  onCompletion,
+  showManualButton = false
 }: SurveyCompletionHandlerProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -28,11 +30,29 @@ export const SurveyCompletionHandler = ({
     try {
       console.log('Processing survey completion:', { surveyId, rewardAmount, userId: user.id });
       
-      // Record survey completion
+      // Check if already completed to prevent duplicates
+      const { data: existingCompletion } = await supabase
+        .from('user_surveys')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('survey_id', surveyId)
+        .eq('status', 'completed')
+        .maybeSingle();
+
+      if (existingCompletion) {
+        toast({
+          title: "Already completed",
+          description: "You have already completed this survey.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Record survey completion with proper user_id
       const { data: completion, error: completionError } = await supabase
         .from('user_surveys')
         .insert({
-          user_id: user.id,
+          user_id: user.id, // Ensure user_id is set for RLS
           survey_id: surveyId,
           status: 'completed',
           reward_earned: rewardAmount,
@@ -49,7 +69,7 @@ export const SurveyCompletionHandler = ({
 
       console.log('Survey completion recorded:', completion);
 
-      // Update wallet
+      // Get current wallet balance
       const { data: wallet, error: walletError } = await supabase
         .from('wallets')
         .select('*')
@@ -61,11 +81,15 @@ export const SurveyCompletionHandler = ({
         throw walletError;
       }
 
+      // Update wallet with new balance
+      const newBalance = Number(wallet.balance) + Number(rewardAmount);
+      const newTotalEarned = Number(wallet.total_earned) + Number(rewardAmount);
+
       const { error: updateError } = await supabase
         .from('wallets')
         .update({
-          balance: Number(wallet.balance) + Number(rewardAmount),
-          total_earned: Number(wallet.total_earned) + Number(rewardAmount),
+          balance: newBalance,
+          total_earned: newTotalEarned,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', user.id);
@@ -77,35 +101,27 @@ export const SurveyCompletionHandler = ({
 
       console.log('Wallet updated successfully');
 
-      // Update survey completion count - first get current count
+      // Update survey completion count
       const { data: currentSurvey, error: surveyFetchError } = await supabase
         .from('surveys')
         .select('current_completions')
         .eq('id', surveyId)
         .single();
 
-      if (surveyFetchError) {
-        console.error('Error fetching survey:', surveyFetchError);
-        // Don't throw here, wallet update is more important
-      } else {
-        const { error: surveyUpdateError } = await supabase
+      if (!surveyFetchError && currentSurvey) {
+        await supabase
           .from('surveys')
           .update({
             current_completions: (currentSurvey.current_completions || 0) + 1
           })
           .eq('id', surveyId);
-
-        if (surveyUpdateError) {
-          console.error('Error updating survey count:', surveyUpdateError);
-          // Don't throw here, wallet update is more important
-        }
       }
 
-      // Send custom notification for manual completions
+      // Send notification
       await notifySurveyCompletion(surveyTitle, rewardAmount);
 
       toast({
-        title: "Survey Completed!",
+        title: "Survey Completed! 🎉",
         description: `You earned KES ${rewardAmount}! Check your wallet.`,
       });
 
@@ -120,10 +136,9 @@ export const SurveyCompletionHandler = ({
     }
   };
 
-  // Listen for survey completion messages from iframe
+  // Listen for survey completion messages from iframe (for external surveys)
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // Handle completion messages from external survey providers
       if (event.data && event.data.type === 'survey_complete') {
         console.log('Survey completion message received:', event.data);
         handleSurveyCompletion();
@@ -134,17 +149,28 @@ export const SurveyCompletionHandler = ({
     return () => window.removeEventListener('message', handleMessage);
   }, [surveyId, rewardAmount, user]);
 
-  // For manual completion (button click)
+  // For manual completion (internal surveys only)
   const handleManualCompletion = () => {
     if (confirm('Mark this survey as completed? This will credit your account.')) {
       handleSurveyCompletion();
     }
   };
 
+  // Only show manual button for internal surveys (when showManualButton is true)
+  if (!showManualButton) {
+    return (
+      <div className="mt-2 p-2 border rounded-lg bg-muted/20">
+        <p className="text-xs text-muted-foreground text-center">
+          Survey completion will be tracked automatically
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-4 p-4 border rounded-lg bg-muted/50">
       <p className="text-sm text-muted-foreground mb-2">
-        Survey completion tracking is active for this survey.
+        Manual completion for internal testing
       </p>
       <button
         onClick={handleManualCompletion}

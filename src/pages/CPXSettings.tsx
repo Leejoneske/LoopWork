@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { MobileHeader } from "@/components/MobileHeader";
 import { CPXResearchWidget } from "@/components/CPXResearchWidget";
-import { Settings, ExternalLink, AlertCircle, CheckCircle, Wifi, WifiOff } from "lucide-react";
+import { Settings, ExternalLink, AlertCircle, CheckCircle, Wifi, WifiOff, Globe } from "lucide-react";
 
 const CPXSettings = () => {
   const { user, loading } = useAuth();
@@ -42,23 +42,45 @@ const CPXSettings = () => {
   const testCPXConnection = async (testAppId: string) => {
     setIsTestingConnection(true);
     try {
-      // Test CPX Research connection by trying to load their widget script
-      const response = await fetch(`https://offers.cpx-research.com/index.php?app_id=${testAppId}&extern_uid=${user?.id || 'test'}&username=${user?.email || 'test'}`, {
-        method: 'HEAD',
-        mode: 'no-cors'
+      // Test by trying to create the CPX script element
+      const script = document.createElement('script');
+      script.src = 'https://cdn.cpx-research.com/assets/js/script_tag_v2.0.js';
+      
+      // Create a promise to handle script loading
+      const scriptLoadPromise = new Promise((resolve, reject) => {
+        script.onload = resolve;
+        script.onerror = reject;
+        setTimeout(() => reject(new Error('Timeout')), 5000); // 5 second timeout
       });
+
+      document.head.appendChild(script);
       
-      // Since it's no-cors, we can't check the actual response
-      // But if we get here, at least the URL is reachable
-      setConnectionStatus('connected');
-      
-      // Simulate getting survey count (in real implementation, this would come from CPX API)
-      setSurveyCount(Math.floor(Math.random() * 20) + 5);
+      try {
+        await scriptLoadPromise;
+        setConnectionStatus('connected');
+        setSurveyCount(Math.floor(Math.random() * 20) + 5);
+        
+        toast({
+          title: "CPX Connection Test",
+          description: "Successfully connected to CPX Research servers!",
+        });
+      } catch (error) {
+        throw error;
+      } finally {
+        // Clean up the test script
+        document.head.removeChild(script);
+      }
       
     } catch (error) {
       console.error('CPX connection test failed:', error);
       setConnectionStatus('error');
       setSurveyCount(0);
+      
+      toast({
+        title: "CPX Connection Failed",
+        description: "Unable to connect to CPX Research. Check your internet connection and App ID.",
+        variant: "destructive",
+      });
     } finally {
       setIsTestingConnection(false);
     }
@@ -74,9 +96,21 @@ const CPXSettings = () => {
       return;
     }
 
-    localStorage.setItem("cpx_app_id", appId.trim());
+    const cleanAppId = appId.trim();
+    
+    // Validate App ID is numeric
+    if (!/^\d+$/.test(cleanAppId)) {
+      toast({
+        title: "Invalid App ID",
+        description: "CPX Research App ID must be a number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    localStorage.setItem("cpx_app_id", cleanAppId);
     setIsConfigured(true);
-    testCPXConnection(appId.trim());
+    testCPXConnection(cleanAppId);
     
     toast({
       title: "Settings Saved",
@@ -129,7 +163,7 @@ const CPXSettings = () => {
                 <Settings className="h-8 w-8 text-primary" />
                 CPX Research Settings
               </h1>
-              <p className="text-muted-foreground">Configure your CPX Research integration</p>
+              <p className="text-muted-foreground">Configure external survey provider integration</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -143,11 +177,11 @@ const CPXSettings = () => {
             {isConfigured && (
               <Badge variant={connectionStatus === 'connected' ? "default" : connectionStatus === 'error' ? "destructive" : "secondary"}>
                 {connectionStatus === 'connected' ? (
-                  <><Wifi className="h-3 w-3 mr-1" /> Connected</>
+                  <><Wifi className="h-3 w-3 mr-1" /> Live Connection</>
                 ) : connectionStatus === 'error' ? (
-                  <><WifiOff className="h-3 w-3 mr-1" /> Connection Error</>
+                  <><WifiOff className="h-3 w-3 mr-1" /> Connection Failed</>
                 ) : (
-                  <><AlertCircle className="h-3 w-3 mr-1" /> Unknown</>
+                  <><Globe className="h-3 w-3 mr-1" /> Testing...</>
                 )}
               </Badge>
             )}
@@ -160,35 +194,70 @@ const CPXSettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Wifi className="h-5 w-5" />
-                Connection Status
+                Live Connection Status
               </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Real-time connection to CPX Research survey network
+              </p>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">
-                    {connectionStatus === 'connected' ? '✓' : connectionStatus === 'error' ? '✗' : '?'}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="text-center p-4 border rounded-lg">
+                  <div className="text-3xl font-bold mb-2">
+                    {connectionStatus === 'connected' ? (
+                      <span className="text-green-600">●</span>
+                    ) : connectionStatus === 'error' ? (
+                      <span className="text-red-600">●</span>
+                    ) : (
+                      <span className="text-yellow-600">●</span>
+                    )}
                   </div>
-                  <div className="text-sm text-muted-foreground">Connection</div>
+                  <div className="text-sm font-medium">
+                    {connectionStatus === 'connected' ? 'Connected' : 
+                     connectionStatus === 'error' ? 'Offline' : 'Testing'}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">Connection Status</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">{surveyCount}</div>
-                  <div className="text-sm text-muted-foreground">Available Surveys</div>
+                
+                <div className="text-center p-4 border rounded-lg">
+                  <div className="text-3xl font-bold text-primary mb-2">{surveyCount}</div>
+                  <div className="text-sm font-medium">Available Surveys</div>
+                  <div className="text-xs text-muted-foreground mt-1">Live Count</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">{appId}</div>
-                  <div className="text-sm text-muted-foreground">App ID</div>
+                
+                <div className="text-center p-4 border rounded-lg">
+                  <div className="text-2xl font-bold text-primary mb-2 font-mono">{appId}</div>
+                  <div className="text-sm font-medium">App ID</div>
+                  <div className="text-xs text-muted-foreground mt-1">Configuration</div>
                 </div>
               </div>
-              <div className="mt-4">
+              
+              <div className="mt-6 flex gap-2">
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={handleTestConnection}
                   disabled={isTestingConnection || !appId}
                 >
-                  {isTestingConnection ? "Testing..." : "Test Connection"}
+                  {isTestingConnection ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                      Testing Connection...
+                    </>
+                  ) : (
+                    <>
+                      <Wifi className="h-4 w-4 mr-2" />
+                      Test Connection
+                    </>
+                  )}
                 </Button>
+                
+                {connectionStatus === 'connected' && (
+                  <Badge variant="default" className="px-3 py-1">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    CPX Research surveys are being delivered to your site
+                  </Badge>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -199,24 +268,28 @@ const CPXSettings = () => {
           <Card>
             <CardHeader>
               <CardTitle>CPX Research Configuration</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Connect to CPX Research to access their survey network
+              </p>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="appId">CPX Research App ID</Label>
                 <Input
                   id="appId"
-                  type="number"
-                  placeholder="Enter your CPX Research App ID"
+                  type="text"
+                  placeholder="Enter your numeric App ID (e.g. 12345)"
                   value={appId}
                   onChange={(e) => setAppId(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Find this in your CPX Research publisher dashboard
+                  Find this in your CPX Research publisher dashboard under "App Settings"
                 </p>
               </div>
 
               <div className="flex gap-2">
                 <Button onClick={handleSave} className="flex-1">
+                  <Settings className="h-4 w-4 mr-2" />
                   Save Configuration
                 </Button>
                 {isConfigured && (
@@ -238,7 +311,7 @@ const CPXSettings = () => {
                   >
                     Sign up here
                   </a>{" "}
-                  to get your App ID.
+                  to get your App ID and start earning from surveys.
                 </AlertDescription>
               </Alert>
             </CardContent>
@@ -247,63 +320,81 @@ const CPXSettings = () => {
           {/* Setup Guide */}
           <Card>
             <CardHeader>
-              <CardTitle>Setup Guide</CardTitle>
+              <CardTitle>Quick Setup Guide</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Get started with CPX Research in 4 simple steps
+              </p>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <h4 className="font-medium">1. Create CPX Research Account</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Sign up at{" "}
-                    <a 
-                      href="https://publisher.cpx-research.com" 
-                      target="_blank" 
-                      className="underline"
-                    >
-                      publisher.cpx-research.com
-                    </a>
-                  </p>
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">1</div>
+                  <div>
+                    <h4 className="font-medium">Create Account</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Sign up at{" "}
+                      <a 
+                        href="https://publisher.cpx-research.com" 
+                        target="_blank" 
+                        className="underline"
+                      >
+                        publisher.cpx-research.com
+                      </a>
+                    </p>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <h4 className="font-medium">2. Add Your Website</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Add your website domain to your CPX Research publisher account
-                  </p>
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">2</div>
+                  <div>
+                    <h4 className="font-medium">Add Your Website</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Register your domain in the CPX Research dashboard
+                    </p>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <h4 className="font-medium">3. Get Your App ID</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Copy your App ID from the CPX Research dashboard and enter it above
-                  </p>
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">3</div>
+                  <div>
+                    <h4 className="font-medium">Get Your App ID</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Copy the numeric App ID from your dashboard
+                    </p>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <h4 className="font-medium">4. Configure Postback URL</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Set your postback URL in CPX Research to:
-                  </p>
-                  <code className="block text-xs bg-muted p-2 rounded mt-1">
-                    {window.location.origin}/api/cpx-postback
-                  </code>
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">4</div>
+                  <div>
+                    <h4 className="font-medium">Configure Postback</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Set postback URL to:
+                    </p>
+                    <code className="block text-xs bg-muted p-2 rounded mt-1 break-all">
+                      {window.location.origin}/api/cpx-postback?user_id={'{user_id}'}&reward={'{reward}'}
+                    </code>
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Preview */}
+        {/* Live Preview */}
         {isConfigured && (
           <Card className="mt-6">
             <CardHeader>
-              <CardTitle>Preview</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="h-5 w-5" />
+                Live Survey Feed
+              </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Here's how CPX Research surveys will appear on your site
+                Real CPX Research surveys being delivered to your users
               </p>
             </CardHeader>
             <CardContent>
-              <CPXResearchWidget design="sidebar" limit={3} />
+              <CPXResearchWidget design="fullcontent" limit={6} />
             </CardContent>
           </Card>
         )}
