@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -11,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { MobileHeader } from "@/components/MobileHeader";
 import { CPXResearchWidget } from "@/components/CPXResearchWidget";
-import { Settings, ExternalLink, AlertCircle, CheckCircle, Wifi, WifiOff, Globe } from "lucide-react";
+import { Settings, ExternalLink, AlertCircle, CheckCircle, Wifi, WifiOff, Globe, Copy } from "lucide-react";
 
 const CPXSettings = () => {
   const { user, loading } = useAuth();
@@ -22,6 +21,9 @@ const CPXSettings = () => {
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'connected' | 'error'>('unknown');
   const [surveyCount, setSurveyCount] = useState<number>(0);
+
+  // Correct postback URL for CPX Research settings
+  const postbackUrl = "https://xfhsnzqpuaxvkkulehkg.supabase.co/functions/v1/cpx-postback";
 
   useEffect(() => {
     if (!loading && !user) {
@@ -84,6 +86,14 @@ const CPXSettings = () => {
     } finally {
       setIsTestingConnection(false);
     }
+  };
+
+  const copyPostbackUrl = () => {
+    navigator.clipboard.writeText(postbackUrl);
+    toast({
+      title: "Copied!",
+      description: "Postback URL copied to clipboard",
+    });
   };
 
   const handleSave = () => {
@@ -320,9 +330,9 @@ const CPXSettings = () => {
           {/* Setup Guide */}
           <Card>
             <CardHeader>
-              <CardTitle>Quick Setup Guide</CardTitle>
+              <CardTitle>CPX Research Setup Guide</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Get started with CPX Research in 4 simple steps
+                Complete setup instructions for CPX Research integration
               </p>
             </CardHeader>
             <CardContent>
@@ -349,7 +359,7 @@ const CPXSettings = () => {
                   <div>
                     <h4 className="font-medium">Add Your Website</h4>
                     <p className="text-sm text-muted-foreground">
-                      Register your domain in the CPX Research dashboard
+                      Register your domain: <code className="bg-muted px-1 rounded">loop-work.vercel.app</code>
                     </p>
                   </div>
                 </div>
@@ -357,23 +367,26 @@ const CPXSettings = () => {
                 <div className="flex gap-3">
                   <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">3</div>
                   <div>
-                    <h4 className="font-medium">Get Your App ID</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Copy the numeric App ID from your dashboard
+                    <h4 className="font-medium">Configure Postback URL</h4>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Set this exact postback URL in your CPX dashboard:
                     </p>
+                    <div className="flex items-center gap-2 p-2 bg-muted rounded">
+                      <code className="text-xs flex-1 break-all">{postbackUrl}</code>
+                      <Button size="sm" variant="outline" onClick={copyPostbackUrl}>
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex gap-3">
                   <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">4</div>
                   <div>
-                    <h4 className="font-medium">Configure Postback</h4>
+                    <h4 className="font-medium">Get Your App ID</h4>
                     <p className="text-sm text-muted-foreground">
-                      Set postback URL to:
+                      Copy the numeric App ID from your dashboard and enter it above
                     </p>
-                    <code className="block text-xs bg-muted p-2 rounded mt-1 break-all">
-                      {window.location.origin}/api/cpx-postback?user_id={'{user_id}'}&reward={'{reward}'}
-                    </code>
                   </div>
                 </div>
               </div>

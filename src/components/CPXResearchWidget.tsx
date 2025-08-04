@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,7 +67,7 @@ export const CPXResearchWidget = ({ design, limit = 8 }: CPXResearchWidgetProps)
         return;
       }
 
-      // Configure CPX Research with proper postback URL
+      // Configure CPX Research with correct Supabase Edge Function URL
       const getThemeStyle = () => {
         switch (design) {
           case 'fullcontent': return 1;
@@ -86,15 +85,19 @@ export const CPXResearchWidget = ({ design, limit = 8 }: CPXResearchWidgetProps)
         ...(limit && { limit_surveys: limit })
       };
 
+      // Use the correct Supabase Edge Function URL for postbacks
+      const supabaseUrl = "https://xfhsnzqpuaxvkkulehkg.supabase.co";
+      const postbackUrl = `${supabaseUrl}/functions/v1/cpx-postback`;
+
       const config = {
         general_config: {
           app_id: parseInt(appId),
           ext_user_id: user!.id,
           subid_1: user!.email,
           subid_2: "survey_rewards",
-          // Add postback URL for automatic completion tracking
-          postback_url: `${window.location.origin}/functions/v1/cpx-postback`,
-          server_postback_url: `https://xfhsnzqpuaxvkkulehkg.supabase.co/functions/v1/cpx-postback`,
+          // Set the correct postback URL for CPX Research
+          postback_url: postbackUrl,
+          server_postback_url: postbackUrl,
         },
         style_config: {
           text_color: "hsl(var(--foreground))",

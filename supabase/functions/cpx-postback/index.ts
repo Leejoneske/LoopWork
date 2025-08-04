@@ -70,7 +70,7 @@ serve(async (req) => {
 
       if (existingCompletion) {
         console.log('Transaction already processed:', transId);
-        return new Response('OK - Already processed', {
+        return new Response('1', {
           status: 200,
           headers: corsHeaders
         });
@@ -229,7 +229,8 @@ serve(async (req) => {
       }
     }
 
-    return new Response('OK', {
+    // Return "1" to indicate success to CPX Research
+    return new Response('1', {
       status: 200,
       headers: corsHeaders
     });
@@ -237,7 +238,8 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error processing CPX postback:', error);
     
-    return new Response(`Error: ${error.message}`, {
+    // Return "0" to indicate failure to CPX Research
+    return new Response('0', {
       status: 500,
       headers: corsHeaders
     });
