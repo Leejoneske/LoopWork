@@ -155,7 +155,7 @@ export const SurveyManagement = () => {
   };
 
   const toggleSurveyStatus = async (id: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'available' ? 'paused' : 'available';
+    const newStatus = currentStatus === 'available' ? 'blocked' : 'available';
     
     try {
       const { error } = await supabase
@@ -167,7 +167,7 @@ export const SurveyManagement = () => {
 
       toast({
         title: "Survey status updated",
-        description: `Survey has been ${newStatus === 'available' ? 'activated' : 'paused'}.`,
+        description: `Survey has been ${newStatus === 'available' ? 'activated' : 'blocked'}.`,
       });
 
       await fetchSurveys();
