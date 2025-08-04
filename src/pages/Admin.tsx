@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
@@ -8,6 +7,8 @@ import { AdminManagement } from "@/components/AdminManagement";
 import { SurveyManagement } from "@/components/SurveyManagement";
 import { ProductionChecklist } from "@/components/ProductionChecklist";
 import { MobileHeader } from "@/components/MobileHeader";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { WalletManager } from "@/components/WalletManager";
 
 const Admin = () => {
   const { user, loading } = useAuth();
@@ -39,59 +40,71 @@ const Admin = () => {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-lg">Access denied. Admin privileges required.</p>
-        </div>
+      <div className="container mx-auto px-4 py-8">
+        <Card>
+          <CardContent className="p-8 text-center">
+            <h2 className="text-2xl font-bold mb-4">Access Denied</h2>
+            <p className="text-muted-foreground">You need admin privileges to access this page.</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <MobileHeader />
-      
-      <div className="container mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <button 
-            onClick={() => navigate("/dashboard")}
-            className="px-4 py-2 text-sm bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80"
-          >
-            Back to Dashboard
-          </button>
-        </div>
-
-        <Tabs defaultValue="system" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="system">System Status</TabsTrigger>
-            <TabsTrigger value="surveys">Surveys</TabsTrigger>
-            <TabsTrigger value="admins">Admin Users</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="system" className="space-y-4">
-            <ProductionChecklist />
-          </TabsContent>
-          
-          <TabsContent value="surveys" className="space-y-4">
-            <SurveyManagement />
-          </TabsContent>
-          
-          <TabsContent value="admins" className="space-y-4">
-            <AdminManagement />
-          </TabsContent>
-          
-          <TabsContent value="settings" className="space-y-4">
-            <div className="grid gap-6">
-              {/* Additional settings can go here */}
-              <div className="text-center py-12 text-muted-foreground">
-                Additional system settings will be available here
-              </div>
-            </div>
-          </TabsContent>
-        </Tabs>
+    <div className="container mx-auto px-4 py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+        <p className="text-muted-foreground mt-2">
+          Manage surveys, users, and system settings
+        </p>
       </div>
+
+      <Tabs defaultValue="surveys" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="surveys">Surveys</TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="wallet">Wallet</TabsTrigger>
+          <TabsTrigger value="checklist">Production</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="surveys">
+          <SurveyManagement />
+        </TabsContent>
+
+        <TabsContent value="users">
+          <AdminManagement />
+        </TabsContent>
+
+        <TabsContent value="wallet">
+          <Card>
+            <CardHeader>
+              <CardTitle>Wallet & Rewards Management</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <WalletManager />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="checklist">
+          <ProductionChecklist />
+        </TabsContent>
+
+        <TabsContent value="settings">
+          <Card>
+            <CardHeader>
+              <CardTitle>System Settings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Additional system settings and configurations will be available here.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

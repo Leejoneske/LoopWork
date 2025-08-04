@@ -494,6 +494,10 @@ export type Database = {
         }
         Returns: number
       }
+      delete_survey_safely: {
+        Args: { survey_id_param: string }
+        Returns: boolean
+      }
       generate_referral_code: {
         Args: Record<PropertyKey, never>
         Returns: string

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -137,23 +136,17 @@ export const SurveyManagement = () => {
     if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
 
     try {
-      // First delete related user_surveys to avoid foreign key constraints
-      const { error: userSurveysError } = await supabase
-        .from("user_surveys")
-        .delete()
-        .eq("survey_id", id);
+      console.log('Deleting survey with ID:', id);
+      
+      // Use the new safe delete function
+      const { data, error } = await supabase.rpc('delete_survey_safely', {
+        survey_id_param: id
+      });
 
-      if (userSurveysError) {
-        console.warn('Warning deleting user surveys:', userSurveysError);
+      if (error) {
+        console.error('Error deleting survey:', error);
+        throw error;
       }
-
-      // Then delete the survey
-      const { error } = await supabase
-        .from("surveys")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
 
       toast({
         title: "Survey deleted",
@@ -162,10 +155,10 @@ export const SurveyManagement = () => {
 
       await fetchSurveys();
     } catch (error: any) {
-      console.error('Error deleting survey:', error);
+      console.error('Failed to delete survey:', error);
       toast({
         title: "Error deleting survey",
-        description: error.message,
+        description: error.message || "Failed to delete survey",
         variant: "destructive",
       });
     }
@@ -175,12 +168,17 @@ export const SurveyManagement = () => {
     const newStatus = currentStatus === 'available' ? 'blocked' : 'available';
     
     try {
+      console.log('Updating survey status:', { id, currentStatus, newStatus });
+      
       const { error } = await supabase
         .from("surveys")
         .update({ status: newStatus })
         .eq("id", id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating survey status:', error);
+        throw error;
+      }
 
       toast({
         title: "Survey status updated",
@@ -192,7 +190,7 @@ export const SurveyManagement = () => {
       console.error('Error updating survey status:', error);
       toast({
         title: "Error updating survey status",
-        description: error.message,
+        description: error.message || "Failed to update survey status",
         variant: "destructive",
       });
     }
