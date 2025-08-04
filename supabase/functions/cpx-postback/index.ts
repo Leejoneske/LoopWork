@@ -51,13 +51,42 @@ serve(async (req) => {
       });
     }
 
+    // Validate environment variables
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('=== MISSING ENV VARS ===');
+      console.error('SUPABASE_URL:', !!supabaseUrl);
+      console.error('SUPABASE_SERVICE_ROLE_KEY:', !!supabaseKey);
+      throw new Error('Missing required environment variables');
+    }
+
     console.log('=== Initializing Supabase ===');
-    // Initialize Supabase client
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabase = createClient(supabaseUrl, supabaseKey);
     console.log('Supabase client created');
+
+    // Check for duplicate transaction
+    console.log('Checking for duplicate transaction...');
+    const { data: existingTransaction, error: duplicateError } = await supabase
+      .from('user_surveys')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('survey_id', transId) // Using transId as a unique identifier
+      .maybeSingle();
+
+    if (duplicateError) {
+      console.error('Duplicate check error:', duplicateError);
+      throw duplicateError;
+    }
+
+    if (existingTransaction) {
+      console.log('Duplicate transaction detected, ignoring');
+      return new Response('1', {
+        status: 200,
+        headers: corsHeaders
+      });
+    }
 
     // Only process status 1 for now (completion)
     if (status === 1) {
@@ -85,35 +114,52 @@ serve(async (req) => {
       }
       console.log('User found:', userCheck.id);
 
-      // Step 2: Check wallet exists
-      console.log('Checking wallet...');
+      // Step 2: Check wallet exists and lock it for update
+      console.log('Checking and locking wallet...');
       const { data: wallet, error: walletError } = await supabase
         .from('wallets')
         .select('*')
         .eq('user_id', userId)
-        .maybeSingle();
+        .single(); // Use single() instead of maybeSingle() to ensure wallet exists
 
       if (walletError) {
         console.error('Wallet error:', walletError);
-        throw walletError;
-      }
+        
+        // If wallet doesn't exist, create it
+        if (walletError.code === 'PGRST116') {
+          console.log('Creating wallet for user:', userId);
+          const { data: newWallet, error: createWalletError } = await supabase
+            .from('wallets')
+            .insert({
+              user_id: userId,
+              balance: 0,
+              total_earned: 0
+            })
+            .select()
+            .single();
 
-      if (!wallet) {
-        console.log('Wallet not found for user:', userId);
-        return new Response('Wallet not found', { 
-          status: 404,
-          headers: corsHeaders 
-        });
+          if (createWalletError) {
+            console.error('Wallet creation error:', createWalletError);
+            throw createWalletError;
+          }
+          
+          wallet = newWallet;
+          console.log('Wallet created:', wallet);
+        } else {
+          throw walletError;
+        }
       }
       console.log('Wallet found. Current balance:', wallet.balance);
 
-      // Step 3: Create/find survey (simplified)
+      // Step 3: Create/find survey
       console.log('Creating/finding survey...');
       let surveyId = null;
+      const surveyTitle = `CPX Survey ${offerId}`;
+      
       const { data: existingSurvey } = await supabase
         .from('surveys')
         .select('id')
-        .eq('title', `CPX Survey ${offerId}`)
+        .eq('title', surveyTitle)
         .maybeSingle();
 
       if (existingSurvey) {
@@ -123,13 +169,13 @@ serve(async (req) => {
         const { data: newSurvey, error: surveyError } = await supabase
           .from('surveys')
           .insert({
-            title: `CPX Survey ${offerId}`,
+            title: surveyTitle,
             description: `External survey from CPX Research (Offer ID: ${offerId})`,
             reward_amount: amountLocal,
             estimated_time: 10,
             status: 'available'
           })
-          .select()
+          .select('id')
           .single();
 
         if (surveyError) {
@@ -140,48 +186,81 @@ serve(async (req) => {
         console.log('Created new survey:', surveyId);
       }
 
-      // Step 4: Record completion (WITHOUT external_survey_id for now)
-      console.log('Recording completion...');
-      const { error: completionError } = await supabase
-        .from('user_surveys')
-        .insert({
-          user_id: userId,
-          survey_id: surveyId,
-          status: 'completed',
-          reward_earned: amountLocal,
-          started_at: new Date().toISOString(),
-          completed_at: new Date().toISOString()
-          // Removed external_survey_id temporarily
-        });
+      // Step 4: Use a transaction to record completion and update wallet atomically
+      console.log('Starting database transaction...');
+      
+      const { error: transactionError } = await supabase.rpc('process_cpx_completion', {
+        p_user_id: userId,
+        p_survey_id: surveyId,
+        p_reward_amount: amountLocal,
+        p_transaction_id: transId
+      });
 
-      if (completionError) {
-        console.error('Completion recording error:', completionError);
-        throw completionError;
+      if (transactionError) {
+        console.error('Transaction error:', transactionError);
+        
+        // If stored procedure doesn't exist, fall back to manual transaction
+        if (transactionError.code === '42883') {
+          console.log('Stored procedure not found, using manual transaction...');
+          
+          // Record completion
+          const { error: completionError } = await supabase
+            .from('user_surveys')
+            .insert({
+              user_id: userId,
+              survey_id: surveyId,
+              status: 'completed',
+              reward_earned: amountLocal,
+              started_at: new Date().toISOString(),
+              completed_at: new Date().toISOString(),
+              // Add external reference if your schema supports it
+              external_reference: transId
+            });
+
+          if (completionError) {
+            console.error('Completion recording error:', completionError);
+            throw completionError;
+          }
+          console.log('Completion recorded successfully');
+
+          // Update wallet with proper decimal handling
+          const currentBalance = parseFloat(wallet.balance) || 0;
+          const currentTotalEarned = parseFloat(wallet.total_earned) || 0;
+          const rewardAmount = parseFloat(amountLocal) || 0;
+          
+          const newBalance = Math.round((currentBalance + rewardAmount) * 100) / 100;
+          const newTotalEarned = Math.round((currentTotalEarned + rewardAmount) * 100) / 100;
+
+          console.log('Updating wallet...');
+          console.log('Current balance:', currentBalance);
+          console.log('Reward amount:', rewardAmount);
+          console.log('New balance:', newBalance);
+
+          const { error: updateError } = await supabase
+            .from('wallets')
+            .update({
+              balance: newBalance,
+              total_earned: newTotalEarned,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', userId);
+
+          if (updateError) {
+            console.error('Wallet update error:', updateError);
+            throw updateError;
+          }
+          console.log('Wallet updated successfully');
+        } else {
+          throw transactionError;
+        }
+      } else {
+        console.log('Transaction completed successfully via stored procedure');
       }
-      console.log('Completion recorded successfully');
-
-      // Step 5: Update wallet
-      console.log('Updating wallet...');
-      const newBalance = Number(wallet.balance) + Number(amountLocal);
-      const newTotalEarned = Number(wallet.total_earned || 0) + Number(amountLocal);
-
-      const { error: updateError } = await supabase
-        .from('wallets')
-        .update({
-          balance: newBalance,
-          total_earned: newTotalEarned,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', userId);
-
-      if (updateError) {
-        console.error('Wallet update error:', updateError);
-        throw updateError;
-      }
-      console.log('Wallet updated. New balance:', newBalance);
 
       console.log('=== SUCCESS ===');
       console.log('User:', userId, 'earned:', amountLocal);
+    } else {
+      console.log('Status not 1, ignoring postback. Status:', status);
     }
 
     return new Response('1', {
@@ -194,6 +273,15 @@ serve(async (req) => {
     console.error('Error type:', error.constructor.name);
     console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
+    
+    // Return more specific error for debugging
+    const errorResponse = {
+      error: error.message,
+      type: error.constructor.name,
+      timestamp: new Date().toISOString()
+    };
+    
+    console.error('Error response:', errorResponse);
     
     return new Response('0', {
       status: 500,
