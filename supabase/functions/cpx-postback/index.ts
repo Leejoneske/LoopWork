@@ -14,7 +14,9 @@ serve(async (req) => {
   }
 
   try {
-    console.log('CPX Postback received:', req.method, req.url);
+    console.log('=== CPX Postback Debug Started ===');
+    console.log('Method:', req.method);
+    console.log('URL:', req.url);
 
     // Parse URL parameters
     const url = new URL(req.url);
@@ -29,71 +31,100 @@ serve(async (req) => {
     const hash = params.get('hash');
     const ipClick = params.get('ip_click');
 
-    console.log('Parsed params:', {
-      userId,
-      amountLocal,
-      amountUsd,
-      status,
-      transId,
-      offerId,
-      hash,
-      ipClick
-    });
+    console.log('=== Parsed Parameters ===');
+    console.log('userId:', userId);
+    console.log('amountLocal:', amountLocal);
+    console.log('amountUsd:', amountUsd);
+    console.log('status:', status);
+    console.log('transId:', transId);
+    console.log('offerId:', offerId);
+    console.log('hash:', hash);
+    console.log('ipClick:', ipClick);
 
-    // ✅ FIX: Required parameters
+    // Check required parameters
     if (!userId || !transId || !offerId) {
-      console.error('Missing required parameters:', { userId, transId, offerId });
+      console.log('=== MISSING REQUIRED PARAMS ===');
+      console.log('Missing:', { userId: !userId, transId: !transId, offerId: !offerId });
       return new Response('Missing required parameters', { 
         status: 400,
         headers: corsHeaders 
       });
     }
 
+    console.log('=== Initializing Supabase ===');
     // Initialize Supabase client
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+    console.log('Supabase client created');
 
-    // Handle different status codes
-    // Status 1 = completion, Status 2 = cancellation/reversal
+    // Only process status 1 for now (completion)
     if (status === 1) {
-      // Survey completed - process reward
-      console.log('Processing survey completion for user:', userId);
+      console.log('=== Processing Completion ===');
 
-      // ✅ FIX: Ensure column `external_survey_id` exists in your DB
-      const { data: existingCompletion } = await supabase
-        .from('user_surveys')
+      // Step 1: Check if user exists
+      console.log('Checking if user exists...');
+      const { data: userCheck, error: userError } = await supabase
+        .from('profiles')
         .select('id')
-        .eq('user_id', userId)
-        .like('external_survey_id', `%${transId}%`)
+        .eq('id', userId)
         .maybeSingle();
-
-      if (existingCompletion) {
-        console.log('Transaction already processed:', transId);
-        return new Response('1', {
-          status: 200,
-          headers: corsHeaders
+      
+      if (userError) {
+        console.error('User check error:', userError);
+        throw userError;
+      }
+      
+      if (!userCheck) {
+        console.log('User not found:', userId);
+        return new Response('User not found', { 
+          status: 404,
+          headers: corsHeaders 
         });
       }
+      console.log('User found:', userCheck.id);
 
-      // Create or find CPX survey record
+      // Step 2: Check wallet exists
+      console.log('Checking wallet...');
+      const { data: wallet, error: walletError } = await supabase
+        .from('wallets')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (walletError) {
+        console.error('Wallet error:', walletError);
+        throw walletError;
+      }
+
+      if (!wallet) {
+        console.log('Wallet not found for user:', userId);
+        return new Response('Wallet not found', { 
+          status: 404,
+          headers: corsHeaders 
+        });
+      }
+      console.log('Wallet found. Current balance:', wallet.balance);
+
+      // Step 3: Create/find survey (simplified)
+      console.log('Creating/finding survey...');
       let surveyId = null;
       const { data: existingSurvey } = await supabase
         .from('surveys')
         .select('id')
-        .eq('external_survey_id', `CPX-${offerId}`)
+        .eq('title', `CPX Survey ${offerId}`)
         .maybeSingle();
 
       if (existingSurvey) {
         surveyId = existingSurvey.id;
+        console.log('Found existing survey:', surveyId);
       } else {
         const { data: newSurvey, error: surveyError } = await supabase
           .from('surveys')
           .insert({
             title: `CPX Survey ${offerId}`,
             description: `External survey from CPX Research (Offer ID: ${offerId})`,
-            external_survey_id: `CPX-${offerId}`,
             reward_amount: amountLocal,
             estimated_time: 10,
             status: 'available'
@@ -102,12 +133,15 @@ serve(async (req) => {
           .single();
 
         if (surveyError) {
-          console.error('Error creating survey:', surveyError);
+          console.error('Survey creation error:', surveyError);
           throw surveyError;
         }
         surveyId = newSurvey.id;
+        console.log('Created new survey:', surveyId);
       }
 
+      // Step 4: Record completion (WITHOUT external_survey_id for now)
+      console.log('Recording completion...');
       const { error: completionError } = await supabase
         .from('user_surveys')
         .insert({
@@ -116,28 +150,20 @@ serve(async (req) => {
           status: 'completed',
           reward_earned: amountLocal,
           started_at: new Date().toISOString(),
-          completed_at: new Date().toISOString(),
-          external_survey_id: `CPX-${transId}`  // ✅ This fixes the 400 issue
+          completed_at: new Date().toISOString()
+          // Removed external_survey_id temporarily
         });
 
       if (completionError) {
-        console.error('Error recording completion:', completionError);
+        console.error('Completion recording error:', completionError);
         throw completionError;
       }
+      console.log('Completion recorded successfully');
 
-      const { data: wallet, error: walletError } = await supabase
-        .from('wallets')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (walletError) {
-        console.error('Error fetching wallet:', walletError);
-        throw walletError;
-      }
-
+      // Step 5: Update wallet
+      console.log('Updating wallet...');
       const newBalance = Number(wallet.balance) + Number(amountLocal);
-      const newTotalEarned = Number(wallet.total_earned) + Number(amountLocal);
+      const newTotalEarned = Number(wallet.total_earned || 0) + Number(amountLocal);
 
       const { error: updateError } = await supabase
         .from('wallets')
@@ -149,77 +175,13 @@ serve(async (req) => {
         .eq('user_id', userId);
 
       if (updateError) {
-        console.error('Error updating wallet:', updateError);
+        console.error('Wallet update error:', updateError);
         throw updateError;
       }
+      console.log('Wallet updated. New balance:', newBalance);
 
-      await supabase.rpc('create_notification', {
-        p_user_id: userId,
-        p_title: 'CPX Survey Completed! 🎉',
-        p_message: `Congratulations! You completed a CPX Research survey and earned KES ${amountLocal}.`,
-        p_type: 'survey',
-        p_data: JSON.stringify({ 
-          survey_id: surveyId, 
-          reward: amountLocal,
-          transaction_id: transId,
-          offer_id: offerId
-        })
-      });
-
-      console.log('Successfully processed CPX completion for user:', userId, 'Amount:', amountLocal);
-
-    } else if (status === 2) {
-      // Survey cancelled/reversed - handle reversal if needed
-      console.log('Processing survey cancellation for user:', userId, 'Transaction:', transId);
-      
-      const { data: completion } = await supabase
-        .from('user_surveys')
-        .select('*')
-        .eq('user_id', userId)
-        .like('external_survey_id', `%${transId}%`)
-        .eq('status', 'completed')
-        .maybeSingle();
-
-      if (completion) {
-        await supabase
-          .from('user_surveys')
-          .update({ status: 'cancelled' })
-          .eq('id', completion.id);
-
-        const { data: wallet } = await supabase
-          .from('wallets')
-          .select('*')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (wallet) {
-          const newBalance = Math.max(0, Number(wallet.balance) - Number(completion.reward_earned));
-          const newTotalEarned = Math.max(0, Number(wallet.total_earned) - Number(completion.reward_earned));
-
-          await supabase
-            .from('wallets')
-            .update({
-              balance: newBalance,
-              total_earned: newTotalEarned,
-              updated_at: new Date().toISOString()
-            })
-            .eq('user_id', userId);
-        }
-
-        await supabase.rpc('create_notification', {
-          p_user_id: userId,
-          p_title: 'Survey Cancelled ❌',
-          p_message: `A CPX Research survey completion was cancelled. KES ${completion.reward_earned} has been deducted from your balance.`,
-          p_type: 'survey',
-          p_data: JSON.stringify({ 
-            transaction_id: transId,
-            offer_id: offerId,
-            reversed_amount: completion.reward_earned
-          })
-        });
-
-        console.log('Successfully reversed CPX completion for user:', userId, 'Amount:', completion.reward_earned);
-      }
+      console.log('=== SUCCESS ===');
+      console.log('User:', userId, 'earned:', amountLocal);
     }
 
     return new Response('1', {
@@ -228,7 +190,10 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error processing CPX postback:', error);
+    console.error('=== ERROR CAUGHT ===');
+    console.error('Error type:', error.constructor.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
     
     return new Response('0', {
       status: 500,
