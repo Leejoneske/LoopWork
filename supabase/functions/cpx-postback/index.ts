@@ -50,39 +50,18 @@ serve(async (req) => {
     // Check required parameters
     if (!userId || !transId || !offerId) {
       console.log('=== MISSING REQUIRED PARAMS ===');
-      return new Response(JSON.stringify({
-        error: 'Missing required parameters',
-        missing: {
-          userId: !userId,
-          transId: !transId,
-          offerId: !offerId
-        }
-      }), { 
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Special handling for test user
-    if (userId === 'test123') {
-      console.log('=== TEST USER DETECTED ===');
-      console.log('Bypassing database operations for test user');
-      return new Response('1', {
+      return new Response('0', {
         status: 200,
         headers: corsHeaders
       });
     }
 
-    // Validate UUID format for production users
+    // Validate UUID format
     if (!isValidUUID(userId)) {
       console.log('=== INVALID USER ID FORMAT ===');
-      return new Response(JSON.stringify({
-        error: 'Invalid user ID format',
-        details: 'Expected UUID format',
-        received: userId
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      return new Response('0', {
+        status: 200,
+        headers: corsHeaders
       });
     }
 
@@ -92,11 +71,12 @@ serve(async (req) => {
     
     if (!supabaseUrl || !supabaseKey) {
       console.error('=== MISSING ENV VARS ===');
-      throw new Error(JSON.stringify({
-        error: 'Missing environment variables',
-        supabaseUrl: !!supabaseUrl,
-        supabaseKey: !!supabaseKey
-      }));
+      console.error('SUPABASE_URL exists:', !!supabaseUrl);
+      console.error('SUPABASE_SERVICE_ROLE_KEY exists:', !!supabaseKey);
+      return new Response('0', {
+        status: 200,
+        headers: corsHeaders
+      });
     }
 
     console.log('=== Initializing Supabase Client ===');
@@ -104,9 +84,6 @@ serve(async (req) => {
       auth: {
         persistSession: false,
         autoRefreshToken: false
-      },
-      db: {
-        schema: 'public'
       }
     });
 
@@ -121,7 +98,10 @@ serve(async (req) => {
 
     if (duplicateError) {
       console.error('Duplicate check error:', duplicateError);
-      throw duplicateError;
+      return new Response('0', {
+        status: 200,
+        headers: corsHeaders
+      });
     }
 
     if (existingTransaction) {
@@ -147,17 +127,17 @@ serve(async (req) => {
       
       if (userError) {
         console.error('User verification error:', userError);
-        throw userError;
+        return new Response('0', {
+          status: 200,
+          headers: corsHeaders
+        });
       }
       
       if (!user) {
         console.log('=== USER NOT FOUND ===');
-        return new Response(JSON.stringify({
-          error: 'User not found',
-          userId: userId
-        }), { 
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        return new Response('0', {
+          status: 200,
+          headers: corsHeaders
         });
       }
       console.log('User verified:', user.id, 'created at:', user.created_at);
@@ -176,7 +156,10 @@ serve(async (req) => {
 
       if (walletError) {
         console.error('Wallet error:', walletError);
-        throw walletError;
+        return new Response('0', {
+          status: 200,
+          headers: corsHeaders
+        });
       }
 
       if (wallet) {
@@ -195,21 +178,19 @@ serve(async (req) => {
         
         if (createError) {
           console.error('Wallet creation error:', createError);
-          throw createError;
+          return new Response('0', {
+            status: 200,
+            headers: corsHeaders
+          });
         }
         console.log('New wallet created');
       }
 
-      // Step 3: Create survey record if needed
-      console.log('=== PROCESSING SURVEY RECORD ===');
-      const surveyTitle = `CPX Survey ${offerId}`;
-      let surveyId = transId; // Using transaction ID as survey ID
-
-      // Step 4: Record completion and update wallet
+      // Step 3: Record completion
       console.log('=== RECORDING COMPLETION ===');
       const completionData = {
         user_id: userId,
-        survey_id: surveyId,
+        survey_id: transId,
         status: 'completed',
         reward_earned: amountLocal,
         started_at: new Date().toISOString(),
@@ -227,7 +208,10 @@ serve(async (req) => {
 
       if (completionError) {
         console.error('Completion recording error:', completionError);
-        throw completionError;
+        return new Response('0', {
+          status: 200,
+          headers: corsHeaders
+        });
       }
 
       // Update wallet with proper decimal handling
@@ -251,13 +235,35 @@ serve(async (req) => {
 
       if (updateError) {
         console.error('Wallet update error:', updateError);
-        throw updateError;
+        return new Response('0', {
+          status: 200,
+          headers: corsHeaders
+        });
       }
 
       console.log('=== TRANSACTION COMPLETED SUCCESSFULLY ===');
       console.log('User:', userId, 'earned:', amountLocal);
+    } else if (status === 2) {
+      console.log('=== PROCESSING CANCELLATION ===');
+      
+      // Handle cancellation - remove the transaction if it exists
+      const { error: deleteError } = await supabase
+        .from('user_surveys')
+        .delete()
+        .eq('user_id', userId)
+        .eq('survey_id', transId);
+
+      if (deleteError) {
+        console.error('Cancellation error:', deleteError);
+        return new Response('0', {
+          status: 200,
+          headers: corsHeaders
+        });
+      }
+
+      console.log('=== CANCELLATION PROCESSED ===');
     } else {
-      console.log('Status not 1, ignoring postback. Status:', status);
+      console.log('Status not 1 or 2, ignoring postback. Status:', status);
     }
 
     return new Response('1', {
@@ -269,19 +275,12 @@ serve(async (req) => {
     console.error('=== ERROR CAUGHT ===');
     console.error('Timestamp:', new Date().toISOString());
     console.error('Error:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
     
-    const errorResponse = {
-      error: error.message,
-      type: error?.constructor?.name || 'UnknownError',
-      stack: error.stack,
-      timestamp: new Date().toISOString()
-    };
-    
-    console.error('Error response:', errorResponse);
-    
-    return new Response(JSON.stringify(errorResponse), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    return new Response('0', {
+      status: 200,
+      headers: corsHeaders
     });
   }
 });
